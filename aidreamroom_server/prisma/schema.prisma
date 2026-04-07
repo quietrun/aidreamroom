@@ -1,0 +1,333 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  uuid        String   @id @db.VarChar(191)
+  email       String   @unique @db.VarChar(191)
+  password    String?  @db.Text
+  token       String?  @db.VarChar(191)
+  updateTime  BigInt?  @map("updateTime")
+  createTime  BigInt?  @map("createTime")
+  level       Int?     @default(0)
+  vip         Int?     @default(0)
+  accountType Int?     @default(0) @map("accountType")
+
+  @@map("user_table")
+}
+
+model EmailCode {
+  email     String  @id @db.VarChar(191)
+  code      String? @db.VarChar(191)
+  limitTime BigInt? @map("limitTime")
+
+  @@map("email_code_table")
+}
+
+model UserRegister {
+  account    String  @id @db.VarChar(191)
+  uuid       String? @db.VarChar(191)
+  createTime BigInt? @map("createTime")
+  status     Int?    @default(0)
+
+  @@map("user_register_table")
+}
+
+model UserLike {
+  userId   String  @db.VarChar(191)
+  itemId   String  @db.VarChar(191)
+  itemType Int?    @map("itemType")
+  liked    Boolean @default(true)
+  focused  Boolean @default(true)
+
+  @@id([userId, itemId])
+  @@map("user_like_table")
+}
+
+model UserInfo {
+  uuid       String  @id @db.VarChar(191)
+  userId     String? @map("user_id") @db.VarChar(191)
+  userName   String? @map("user_name") @db.VarChar(191)
+  userPhone  String? @map("user_phone") @db.VarChar(191)
+  userEmail  String? @map("user_email") @db.VarChar(191)
+  userAvater String? @map("user_avater") @db.Text
+
+  @@map("user_info_table")
+}
+
+model Friend {
+  userId       String   @map("user_id") @db.VarChar(191)
+  targetUserId String   @map("target_user_id") @db.VarChar(191)
+  hasRead      Boolean? @default(false) @map("has_read")
+  status       Int?     @default(0)
+
+  @@id([userId, targetUserId])
+  @@map("friends_table")
+}
+
+model OutlookInfo {
+  uuid       String @id @db.VarChar(191)
+  creator    String @db.VarChar(191)
+  updateTime BigInt @map("updateTime")
+  title      String @db.Text
+  descript   String @db.Text
+  worldType  String @map("worldType") @db.Text
+
+  @@map("outlook_info_table")
+}
+
+model OutlookItem {
+  uuid       String @id @db.VarChar(191)
+  parent     String @db.VarChar(191)
+  title      String @db.Text
+  descript   String @db.Text
+  updateTime BigInt @map("updateTime")
+  images     String @db.Text
+  creator    String @db.VarChar(191)
+  type       Int    @default(0)
+
+  @@map("outlook_item_table")
+}
+
+model CharacterInfo {
+  uuid       String   @id @db.VarChar(191)
+  creater    String   @db.VarChar(191)
+  updateTime BigInt   @map("updateTime")
+  info       String   @db.LongText
+  image      String?  @db.Text
+  worldType  String?  @map("worldType") @db.Text
+  metrics    String?  @db.LongText
+  isShared   Boolean? @default(false) @map("isShared")
+
+  @@map("character_info_table")
+}
+
+model ElementItem {
+  uuid         String   @id @db.VarChar(191)
+  creator      String   @db.VarChar(191)
+  createTime   BigInt?  @map("createTime")
+  updateTime   BigInt?  @map("updateTime")
+  name         String   @db.VarChar(191)
+  descript     String?  @db.LongText
+  worldType    String?  @map("worldType") @db.Text
+  type         Int?     @default(0)
+  images       String?  @db.LongText
+  parent       String?  @db.VarChar(191)
+  materialType Int?     @map("materialType")
+  isDelete     Boolean? @default(false) @map("isDelete")
+  isShared     Boolean? @default(false) @map("isShared")
+
+  @@map("element_item_table")
+}
+
+model HiddenItem {
+  userId String @db.VarChar(191)
+  itemId String @db.VarChar(191)
+
+  @@id([userId, itemId])
+  @@map("hidden_item_table")
+}
+
+model MaterialCart {
+  userId String @db.VarChar(191)
+  itemId String @db.VarChar(191)
+
+  @@id([userId, itemId])
+  @@map("metrial_cart_table")
+}
+
+model PlotInfo {
+  uuid       String   @id @db.VarChar(191)
+  creator    String   @db.VarChar(191)
+  updateTime BigInt   @map("updateTime")
+  title      String   @db.Text
+  descript   String?  @db.LongText
+  worldType  String?  @map("worldType") @db.Text
+  plotTarget String?  @map("plotTarget") @db.Text
+  isShared   Boolean? @default(false) @map("isShared")
+
+  @@map("plot_info_table")
+}
+
+model PlotItem {
+  uuid         String   @id @db.VarChar(191)
+  parent       String   @db.VarChar(191)
+  title        String   @db.Text
+  descript     String?  @db.LongText
+  updateTime   BigInt?  @map("updateTime")
+  images       String?  @db.LongText
+  creator      String?  @db.VarChar(191)
+  type         Int?     @default(0)
+  plotParent   String?  @map("plotParent") @db.Text
+  conditionIds String?  @map("conditionIds") @db.Text
+  plotType     Int?     @default(0) @map("plotType")
+  isSub        Boolean? @default(false) @map("isSub")
+  subParentId  String?  @map("subParentId") @db.VarChar(191)
+  metrics      String?  @db.LongText
+
+  @@map("plot_item_table")
+}
+
+model PlotKnowledge {
+  uuid         String  @id @db.VarChar(191)
+  parent       String? @db.VarChar(191)
+  name         String? @db.VarChar(191)
+  descript     String? @db.LongText
+  materialType Int?    @map("materialType")
+  images       String? @db.LongText
+
+  @@map("plot_knowledge_table")
+}
+
+model PlotPosition {
+  uuid   String  @id @db.VarChar(191)
+  x      Float?
+  y      Float?
+  itemId String? @map("itemId") @db.VarChar(191)
+
+  @@map("plot_position_table")
+}
+
+model PlayConfig {
+  uuid          String   @id @db.VarChar(191)
+  creator       String   @db.VarChar(191)
+  updateTime    BigInt?  @map("updateTime")
+  plotId        String?  @map("plot_id") @db.VarChar(191)
+  characterId   String?  @map("character_id") @db.VarChar(191)
+  currentPlotId String?  @map("currentPlotId") @db.VarChar(191)
+  modelId       Int?     @default(1) @map("model_id")
+  currentItems  String?  @map("currentItems") @db.Text
+  imageList     String?  @map("image_list") @db.Text
+  isFinish      Boolean? @default(false) @map("isFinish")
+
+  @@map("play_config")
+}
+
+model ChatLimit {
+  userId      String  @id @map("user_id") @db.VarChar(191)
+  updateDate  BigInt? @map("update_date")
+  limitConfig String? @map("limit_config") @db.LongText
+
+  @@map("chat_limit_table")
+}
+
+model NumericalValue {
+  uuid   String  @id @db.VarChar(191)
+  name   String? @db.VarChar(191)
+  detail String? @db.LongText
+  inUsed Int?    @default(0)
+
+  @@map("numerical_value_table")
+}
+
+model UserRole {
+  uuid            String  @id @db.VarChar(191)
+  userId          String  @unique @map("user_id") @db.VarChar(191)
+  name            String  @db.VarChar(191)
+  gender          String? @db.VarChar(64)
+  age             Int?    @default(18)
+  appearanceStyle String? @map("appearance_style") @db.Text
+  strength        Int?    @default(50)
+  constitution    Int?    @default(50)
+  size            Int?    @default(50)
+  dexterity       Int?    @default(50)
+  appearance      Int?    @default(50)
+  intelligence    Int?    @default(50)
+  power           Int?    @default(50)
+  education       Int?    @default(50)
+  luck            Int?    @default(50)
+  experience      Int?    @default(0)
+  items           String? @db.LongText
+  worlds          String? @db.LongText
+  createTime      BigInt? @map("createTime")
+  updateTime      BigInt? @map("updateTime")
+
+  @@map("user_role_table")
+}
+
+model UserRoleAbility {
+  roleId     String  @map("role_id") @db.VarChar(191)
+  abilityKey String  @map("ability_key") @db.VarChar(64)
+  abilityName String? @map("ability_name") @db.VarChar(64)
+  level      Int?    @default(0)
+  experience Int?    @default(0)
+
+  @@id([roleId, abilityKey])
+  @@map("user_role_ability_table")
+}
+
+model Skill {
+  uuid         String   @id @db.VarChar(191)
+  name         String   @db.VarChar(191)
+  description  String?  @db.LongText
+  formulaLabel String?  @map("formula_label") @db.Text
+  formulaConfig String  @map("formula_config") @db.LongText
+  isActive     Boolean? @default(true) @map("is_active")
+  createTime   BigInt?  @map("createTime")
+  updateTime   BigInt?  @map("updateTime")
+
+  @@map("skill_table")
+}
+
+model SkillRequirement {
+  skillId       String  @map("skill_id") @db.VarChar(191)
+  abilityKey    String  @map("ability_key") @db.VarChar(64)
+  abilityName   String? @map("ability_name") @db.VarChar(64)
+  requiredLevel Int?    @map("required_level") @default(0)
+
+  @@id([skillId, abilityKey])
+  @@map("skill_requirement_table")
+}
+
+model Item {
+  uuid          String   @id @db.VarChar(191)
+  name          String   @db.VarChar(191)
+  description   String?  @db.LongText
+  itemType      String   @map("item_type") @db.VarChar(64)
+  itemSubType   String?  @map("item_sub_type") @db.VarChar(64)
+  effectLabel   String?  @map("effect_label") @db.Text
+  effectConfig  String?  @map("effect_config") @db.LongText
+  formulaLabel  String?  @map("formula_label") @db.Text
+  formulaConfig String?  @map("formula_config") @db.LongText
+  stackLimit    Int?     @default(1) @map("stack_limit")
+  isActive      Boolean? @default(true) @map("is_active")
+  createTime    BigInt?  @map("createTime")
+  updateTime    BigInt?  @map("updateTime")
+
+  @@map("item_table")
+}
+
+model UserWarehouse {
+  uuid           String   @id @db.VarChar(191)
+  userId         String   @unique @map("user_id") @db.VarChar(191)
+  capacity       Int?     @default(50)
+  expansionCount Int?     @default(0) @map("expansion_count")
+  createTime     BigInt?  @map("createTime")
+  updateTime     BigInt?  @map("updateTime")
+
+  @@map("user_warehouse_table")
+}
+
+model UserWarehouseEntry {
+  uuid              String   @id @db.VarChar(191)
+  warehouseId       String   @map("warehouse_id") @db.VarChar(191)
+  entryType         String   @map("entry_type") @db.VarChar(64)
+  itemId            String?  @map("item_id") @db.VarChar(191)
+  skillId           String?  @map("skill_id") @db.VarChar(191)
+  quantity          Int?     @default(1)
+  remainingUses     Int?     @map("remaining_uses")
+  durabilityCurrent Int?     @map("durability_current")
+  durabilityMax     Int?     @map("durability_max")
+  isEquipped        Boolean? @default(false) @map("is_equipped")
+  equippedSlot      String?  @map("equipped_slot") @db.VarChar(64)
+  affixConfig       String?  @map("affix_config") @db.LongText
+  createTime        BigInt?  @map("createTime")
+  updateTime        BigInt?  @map("updateTime")
+
+  @@map("user_warehouse_entry_table")
+}

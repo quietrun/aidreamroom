@@ -1,0 +1,44 @@
+{
+  "name": "aidreamroom_server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "NestJS + Prisma refactor for the legacy ai_dreamroom_server project.",
+  "license": "UNLICENSED",
+  "scripts": {
+    "postinstall": "prisma generate",
+    "prebuild": "prisma generate",
+    "prestart:dev": "prisma generate",
+    "build": "nest build",
+    "start": "node dist/main.js",
+    "start:dev": "nest start --watch",
+    "prisma:generate": "prisma generate",
+    "prisma:pull": "prisma db pull"
+  },
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.758.0",
+    "@aws-sdk/client-ses": "^3.758.0",
+    "@nestjs/common": "^11.0.1",
+    "@nestjs/config": "^4.0.2",
+    "@nestjs/core": "^11.0.1",
+    "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/schedule": "^5.0.1",
+    "@prisma/client": "^6.5.0",
+    "axios": "^1.8.4",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
+    "js-md5": "^0.8.3",
+    "minio": "^8.0.2",
+    "nodejs-websocket": "^1.7.2",
+    "nodemailer": "^6.10.0",
+    "openai": "^4.91.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.5",
+    "@types/node": "^22.13.14",
+    "prisma": "^6.5.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.2"
+  }
+}

@@ -1,0 +1,551 @@
+﻿.mobile-app .main-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    min-height: 100vh;
+    background-image: url('@//background.jpg');
+    background-position: center center;
+    background-size: cover;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-start;
+    overflow: hidden;
+}
+
+.mobile-app .login-logo {
+    margin-left: 0.469rem;
+    margin-top: 0.469rem;
+    width: 1.906rem;
+    height: 0.688rem;
+}
+
+.mobile-app .login-container {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin: auto;
+    width: 14.125rem;
+    height: 14.688rem;
+    border-radius: 1.438rem;
+    border: 0.044px solid;
+    /* 为了兼容 Webkit 内核的浏览器 */
+    opacity: 0.9;
+    border-color: rgb(131, 111, 108);
+    background-image: linear-gradient(to bottom, rgba(75, 77, 75, 1), rgba(74, 64, 54, 1));
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 0.75rem; //1rem 3rem;
+
+    span {
+        color: #ffffff;
+        text-align: left;
+        font-size: 0.531rem;
+        font-family: PingFangSC, PingFang SC;
+        margin-left: 0.4rem;
+    }
+
+    .normal-row {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+
+        img {
+            width: 1.375rem;
+        }
+    }
+
+    input {
+        color: rgba(164, 153, 142);
+
+        &::placeholder {
+            color: #696767;
+        }
+
+        font-size: 0.406rem;
+        font-family: PingFangSC, PingFang SC;
+        padding: 0;
+        margin-top: 0rem;
+        line-height: 0;
+        margin-left: 0.4rem;
+    }
+
+    .ant-checkbox-inner {
+        width: 0.688rem;
+        height: 0.688rem;
+        margin-right: 0.744rem;
+    }
+}
+
+.mobile-app .login-eng-logo {
+    width: 12.531rem;
+    height: 1.969rem;
+    margin-left: 4.219rem;
+    margin-bottom: 1.063rem;
+}
+
+.mobile-app .login-ad {
+    position: absolute;
+    right: 1%;
+    bottom: 0;
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: flex-end;
+}
+
+.mobile-app .login-adir-woman {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 2.813rem;
+    height: 3.875rem;
+    z-index: 10;
+}
+
+.mobile-app .login-aidr {
+    z-index: 8;
+    width: 9.9rem;
+    margin-bottom: 10%;
+}
+
+.mobile-app .aidr-qq {
+    position: absolute;
+    left: 1.481rem;
+    bottom: 1.781rem;
+    width: 10.219rem;
+    height: 3rem;
+    // background-color: rgb(149, 149, 149);
+    background-image: linear-gradient(to bottom, rgba(75, 77, 75, 0.75), rgba(74, 64, 54, 0.75));
+    border-radius: 1.438rem;
+    border: 0.044px solid;
+    // display: flex;
+    // flex-direction: column;
+    // justify-content: flex-start;
+    // align-items: center;
+    // padding: 1rem 2rem;
+    a {
+        color: #85A8FF;
+    }
+}
+
+.mobile-app .inductron {
+    width: 19.8rem;
+    height: 12.25rem;
+    margin-bottom: 4rem;
+    margin-left: -1.5rem;
+    border-radius: 2.3rem;
+    border: 0.7px solid;
+    border-color: rgb(131, 111, 108);
+    background-image: linear-gradient(to right, rgba(75, 77, 75, 1), rgba(74, 64, 54, 1));
+    border-radius: 2.3rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 1rem 2rem;
+
+    span {
+        color: #ffffff;
+        font-size: 1.1rem
+    }
+}
+
+.mobile-app .line {
+    width: 100%;
+    height: 0.1rem;
+    opacity: 0.08;
+    background: #ffffff;
+}
+
+.mobile-app .login-btn-group {
+    margin-top: 1.375rem;
+    height: 1.5rem;
+
+    img {
+        width: 1.5rem;
+        height: 1.5rem;
+    }
+}
+
+.mobile-app .login_btn {
+    position: absolute;
+    top: 13.875rem;
+    cursor: pointer;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    width: 5.75rem;
+    height: 2.125rem;
+    background-color: rgba(108, 108, 108, 0.9);
+    border: 0.024rem solid;
+    border-color: rgba(121, 121, 121, 0.9);
+    border-radius: 1.063rem;
+    // margin-top: 1.3rem;
+    flex-shrink: 0;
+
+    img {
+        width: 1.375rem;
+    }
+
+    div {
+        height: 1.375rem;
+        width: 3.219rem;
+        margin-left: 0.281rem;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        background-color: rgba(127, 128, 127, 0.9);
+        border: 1px solid rgb(121, 121, 121);
+        border-radius: 1.063rem;
+    }
+
+    span {
+        margin-left: 0;
+    }
+}
+
+.mobile-app .mainpage-container {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin: auto;
+    width: 17.969rem;
+    height: 100%;
+    border-radius: 1.438rem;
+    border: 0.044px solid;
+    border-color: rgb(131, 111, 108);
+    background-image: linear-gradient(to bottom, rgba(75, 77, 75, 1), rgba(74, 64, 54, 1));
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 0rem;
+    box-sizing: border-box;
+    overflow: hidden;
+
+    .row {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+
+        img {
+            width: 1.375rem;
+            height: 1.375rem;
+            cursor: pointer;
+        }
+    }
+    span {
+        color: #ffffff;
+        font-size: 1.45rem;
+    }
+}
+
+
+.mobile-app .normal-row {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+
+.mobile-app .outlook-item {
+    width: 11.95rem;
+    margin-left: 2.7rem;
+    margin-bottom: 1.85rem;
+    height: 14rem;
+    border-radius: 1.4rem;
+    background-color: rgba(106, 108, 107, 0.9);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: flex-start;
+    padding: 0.75rem;
+
+    img {
+        width: 1.35rem;
+        height: 1.35rem;
+    }
+
+    span {
+        font-size: 0.5rem;
+        color: #ffffff;
+
+    }
+}
+
+.mobile-app .outlook-item-detail {
+    height: 3rem;
+    /* 取消普通的换行 */
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    /* 最多显示三行 */
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mobile-app input {
+    color: rgba(164, 153, 142);
+}
+
+@import 'https://cdn.jsdelivr.net/npm/@vue-flow/core@1.22.2/dist/style.css';
+@import 'https://cdn.jsdelivr.net/npm/@vue-flow/core@1.22.2/dist/theme-default.css';
+@import 'https://cdn.jsdelivr.net/npm/@vue-flow/controls@latest/dist/style.css';
+@import 'https://cdn.jsdelivr.net/npm/@vue-flow/minimap@latest/dist/style.css';
+@import 'https://cdn.jsdelivr.net/npm/@vue-flow/node-resizer@latest/dist/style.css';
+
+html,
+body,
+#app,
+#root {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+}
+
+#app,
+#root {
+    // font-family: 'JetBrains Mono', monospace;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-align: center;
+    color: #2c3e50;
+}
+
+
+@import 'https://cdn.jsdelivr.net/npm/@vue-flow/core@1.22.2/dist/style.css';
+@import 'https://cdn.jsdelivr.net/npm/@vue-flow/core@1.22.2/dist/theme-default.css';
+@import 'https://cdn.jsdelivr.net/npm/@vue-flow/controls@latest/dist/style.css';
+@import 'https://cdn.jsdelivr.net/npm/@vue-flow/minimap@latest/dist/style.css';
+@import 'https://cdn.jsdelivr.net/npm/@vue-flow/node-resizer@latest/dist/style.css';
+
+
+.mobile-app .leftMessage {
+    max-width: 88.614%;
+    background-color: rgba(211, 211, 211, 0.3);
+    border-radius: 1.36rem;
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: flex-start;
+    padding: 0.25rem 0.313rem;
+    margin-bottom: 0.625rem;
+    margin-left: 0.563rem;
+
+    .messageBox {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: flex-start;
+        margin-left: 0.313rem;
+        margin-right: calc(0.75rem - 0.313rem);
+        flex-wrap: wrap;
+        word-break: break-all;
+    }
+}
+
+.mobile-app .save_btn {
+    position: absolute;
+    bottom: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    z-index: 100;
+    justify-content: center;
+    width: 100%;
+    border-radius: 3.7rem;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+.mobile-app .messageSendBar {
+    position: absolute;
+    top: calc(100% - 2.75rem - 1.125rem);
+    display: flex;
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: center;
+    width: 17.5rem;
+
+    .buttonContainer {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        background-color: rgba(66, 68, 61, 0.9);
+        border-color: rgb(106, 104, 104);
+        border-width: 0.024rem;
+        border-style: solid;
+        padding: 0.375rem;
+        border-radius: 1.063rem;
+        width: 1.375rem;
+        height: 1.375rem;
+    }
+
+    .buttonInfoContainer {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        background-color: rgba(106, 108, 107, 0.9);
+        border-radius: 0.676rem;
+    }
+
+    .ant-input-textarea,
+    .ant-input-textarea textarea,
+    textarea.ant-input {
+        color: #fff !important;
+        background-color: rgba(106, 108, 107, 0.9) !important;
+        border: none !important;
+        box-shadow: none !important;
+        resize: none;
+    }
+
+    .ant-input-textarea textarea::placeholder,
+    textarea.ant-input::placeholder {
+        color: rgba(255, 255, 255, 0.55) !important;
+    }
+
+    img {
+        width: 1.375rem;
+        height: 1.375rem;
+    }
+}
+
+.mobile-app .normal-row {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+
+    .row {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+
+        img {
+            width: 1.375rem;
+            height: 1.375rem;
+            margin-right: 1rem;
+            cursor: pointer;
+        }
+    }
+}
+
+.mobile-app .selector-container {
+    margin-top: 1rem;
+    /* height: 20px; */
+    border-radius: 1.1rem;
+    background-color: rgb(72, 69, 68);
+    margin-bottom: 1rem;
+    padding: 0.5rem 0.2rem;
+
+    span {
+        color: #fff;
+        font-size: 0.75rem;
+    }
+
+    .selector-item {
+        padding: 0.5rem 2rem;
+        border-radius: 2rem;
+        cursor: pointer;
+
+        &.selected {
+            background-color: rgb(83, 82, 81);
+        }
+    }
+}
+
+.mobile-app a-textarea {
+    color: rgba(164, 153, 142);
+}
+
+.mobile-app .role-gender-select {
+    .ant-select-selector {
+        background: rgba(255, 255, 255, 0.08) !important;
+        border-color: rgba(255, 255, 255, 0.12) !important;
+        box-shadow: none !important;
+        height: 1.75rem !important;
+        border-radius: 0.55rem !important;
+        padding: 0 0.55rem !important;
+    }
+
+    .ant-select-selection-item,
+    .ant-select-selection-placeholder {
+        color: #fff !important;
+        font-size: 0.62rem !important;
+        line-height: 1.65rem !important;
+        font-weight: 500;
+    }
+
+    .ant-select-selection-search {
+        inset-inline-start: 0.55rem !important;
+        inset-inline-end: 0.55rem !important;
+    }
+
+    .ant-select-selection-search-input {
+        color: #fff !important;
+        height: 1.65rem !important;
+        font-size: 0.62rem !important;
+    }
+
+    .ant-select-arrow {
+        color: rgba(255, 255, 255, 0.72) !important;
+        font-size: 0.64rem !important;
+    }
+}
+
+.role-gender-select-popup {
+    background: rgba(44, 41, 38, 0.98) !important;
+    border: 0.044rem solid rgba(255, 255, 255, 0.12) !important;
+    box-shadow: 0 0.35rem 1rem rgba(0, 0, 0, 0.35) !important;
+
+    .ant-select-item-option-content {
+        color: #fff;
+        font-size: 0.68rem;
+        line-height: 1.1rem;
+    }
+
+    .ant-select-item {
+        color: #fff;
+        font-size: 0.68rem;
+        border-radius: 0.35rem;
+    }
+
+    .ant-select-item-option {
+        margin: 0.12rem;
+    }
+
+    .ant-select-item-option-active:not(.ant-select-item-option-disabled) {
+        background: rgba(255, 255, 255, 0.08) !important;
+    }
+
+    .ant-select-item-option-selected:not(.ant-select-item-option-disabled) {
+        background: rgba(77, 112, 145, 0.42) !important;
+    }
+
+    .ant-select-item-empty {
+        color: rgba(255, 255, 255, 0.55) !important;
+        font-size: 0.64rem;
+    }
+}
+
+
