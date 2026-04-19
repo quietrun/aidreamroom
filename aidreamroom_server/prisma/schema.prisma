@@ -331,3 +331,22 @@ model UserWarehouseEntry {
 
   @@map("user_warehouse_entry_table")
 }
+
+model Script {
+  uuid              String   @id @db.VarChar(32)
+  title             String   @db.Text
+  description       String?  @db.LongText
+  totalNodes        Int?     @default(0) @map("total_nodes")
+  theme             String?  @db.VarChar(64)
+  difficulty        String?  @db.VarChar(64)
+  requiredItems     String?  @map("required_items") @db.LongText
+  requiredKnowledge String?  @map("required_knowledge") @db.LongText
+  scriptFile        String?  @map("script_file") @db.LongText
+  npcFile           String?  @map("npc_file") @db.LongText
+  itemFile          String?  @map("item_file") @db.LongText
+  mapFile           String?  @map("map_file") @db.LongText
+  createTime        BigInt?  @map("createTime")
+  updateTime        BigInt?  @map("updateTime")
+
+  @@map("script_table")
+}

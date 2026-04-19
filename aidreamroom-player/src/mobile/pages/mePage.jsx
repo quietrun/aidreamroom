@@ -106,9 +106,6 @@ export function MobileMePage() {
   const attributeTotal = useMemo(() => computeRoleAttributeTotal(role || {}), [role]);
   const counts = {
     play: detail?.play?.length || 0,
-    plot: detail?.plot?.length || 0,
-    character: detail?.character?.length || 0,
-    elements: detail?.elements?.length || 0,
   };
 
   if (loading) {
@@ -187,9 +184,6 @@ export function MobileMePage() {
               <div style={{ color: '#fff', fontSize: '0.76rem', textAlign: 'left', marginBottom: '0.7rem' }}>{'冒险统计'}</div>
               <div style={{ color: 'rgba(255,255,255,0.68)', fontSize: '0.56rem', lineHeight: 1.8, textAlign: 'left' }}>
                 <div>{`剧本：${counts.play}`}</div>
-                <div>{`剧情：${counts.plot}`}</div>
-                <div>{`角色素材：${counts.character}`}</div>
-                <div>{`元素素材：${counts.elements}`}</div>
               </div>
             </div>
 

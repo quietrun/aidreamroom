@@ -190,12 +190,6 @@ export class UsersController {
     return { result: 0, userId };
   }
 
-  @Get('liked/list/detail')
-  @UseGuards(SessionAuthGuard)
-  async likedListDetail(@CurrentUserId() userId: string) {
-    return { result: 0, ...(await this.usersService.queryLikedListDetail(userId)) };
-  }
-
   @Post('wxlogin')
   wxLogin() {
     return { result: 0 };

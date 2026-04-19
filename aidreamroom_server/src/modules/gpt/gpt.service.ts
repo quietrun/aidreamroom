@@ -1,5 +1,5 @@
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
 
@@ -9,18 +9,28 @@ import { getModuleNameById } from '../../common/utils/legacy.constants';
 export class GptService {
   private readonly openai: OpenAI;
   private readonly bedrockClient: BedrockRuntimeClient;
+  private readonly logger = new Logger(GptService.name);
+  private readonly openaiApiKey: string;
+  private readonly bedrockModelId: string;
+  private readonly bedrockAccessKeyId: string;
+  private readonly bedrockSecretAccessKey: string;
 
   constructor(private readonly configService: ConfigService) {
+    this.openaiApiKey = this.configService.get<string>('app.openaiApiKey', '');
+    this.bedrockModelId = this.configService.get<string>('app.bedrockModelId', '');
+    this.bedrockAccessKeyId = this.configService.get<string>('app.bedrockAccessKeyId', '');
+    this.bedrockSecretAccessKey = this.configService.get<string>('app.bedrockSecretAccessKey', '');
+
     this.openai = new OpenAI({
-      apiKey: this.configService.get<string>('app.openaiApiKey', ''),
+      apiKey: this.openaiApiKey,
       baseURL: this.configService.get<string>('app.openaiBaseUrl') || undefined,
     });
 
     this.bedrockClient = new BedrockRuntimeClient({
       region: this.configService.get<string>('app.bedrockRegion', 'us-west-2'),
       credentials: {
-        accessKeyId: this.configService.get<string>('app.bedrockAccessKeyId', ''),
-        secretAccessKey: this.configService.get<string>('app.bedrockSecretAccessKey', ''),
+        accessKeyId: this.bedrockAccessKeyId,
+        secretAccessKey: this.bedrockSecretAccessKey,
       },
     });
   }
@@ -38,16 +48,42 @@ export class GptService {
   async generateStructuredMessage(message: string, moduleId = 1) {
     const model = getModuleNameById(moduleId);
 
+    if (model === 'Claude' && !this.isBedrockConfigured()) {
+      this.logger.warn(
+        `Skipping Claude request for moduleId=${moduleId} because Bedrock credentials are not configured`,
+      );
+      return null;
+    }
+
+    if (model !== 'Claude' && !this.openaiApiKey) {
+      this.logger.warn(
+        `Skipping OpenAI request for moduleId=${moduleId} model=${model} because OPENAI_API_KEY is empty`,
+      );
+      return null;
+    }
+
     for (let retry = 0; retry < 3; retry += 1) {
-      const text = model === 'Claude'
-        ? await this.invokeClaude(message)
-        : await this.generateDirectMessage(message, model);
+      let text = '';
+      try {
+        text = model === 'Claude'
+          ? await this.invokeClaude(message)
+          : await this.generateDirectMessage(message, model);
+      } catch (error) {
+        this.logger.error(
+          `Structured generation failed for moduleId=${moduleId} model=${model} retry=${retry + 1}`,
+          error instanceof Error ? error.stack : String(error),
+        );
+        continue;
+      }
 
       const normalized = text.replaceAll('，', ',');
       try {
         JSON.parse(normalized);
         return normalized;
       } catch {
+        this.logger.warn(
+          `Structured generation returned non-JSON output for moduleId=${moduleId} model=${model} retry=${retry + 1}`,
+        );
         continue;
       }
     }
@@ -94,5 +130,13 @@ export class GptService {
       return text.slice(7, -3).trim();
     }
     return text.trim();
+  }
+
+  private isBedrockConfigured() {
+    return Boolean(
+      this.bedrockModelId &&
+      this.bedrockAccessKeyId &&
+      this.bedrockSecretAccessKey,
+    );
   }
 }

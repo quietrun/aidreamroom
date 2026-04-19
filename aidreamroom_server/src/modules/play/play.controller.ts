@@ -6,23 +6,24 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsOptional, IsString } from 'class-validator';
 
 import { CurrentUserId } from '../../common/auth/current-user-id.decorator';
 import { SessionAuthGuard } from '../../common/auth/session-auth.guard';
 import { PlayService } from './play.service';
 
 class CreatePlayDto {
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  plot_id!: string;
-
-  @IsString()
-  @IsNotEmpty()
-  character_id!: string;
+  script_id?: string;
 
   @IsOptional()
   model_id?: number;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  currentItems?: string[];
 }
 
 @Controller('play')
@@ -32,9 +33,17 @@ export class PlayController {
   @Post('create')
   @UseGuards(SessionAuthGuard)
   async create(@CurrentUserId() userId: string, @Body() body: CreatePlayDto) {
+    const info = await this.playService.create(userId, body);
+    if (!info) {
+      return {
+        result: -1,
+        message: 'No playable script available',
+      };
+    }
+
     return {
       result: 0,
-      info: await this.playService.create(userId, body),
+      info,
     };
   }
 
@@ -46,8 +55,8 @@ export class PlayController {
 
   @Get('query/info')
   async queryInfo(@Query('id') id: string) {
-    const { game, plot, character, plotList } = await this.playService.queryGameConfig(id);
-    return { result: 0, game, plot, character, plotList };
+    const { game, plot, script, character, runtime } = await this.playService.queryGameConfig(id);
+    return { result: 0, game, plot, script, character, runtime };
   }
 
   @Get('query/times/remain')

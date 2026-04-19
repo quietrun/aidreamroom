@@ -1,314 +1,918 @@
-﻿import { useEffect, useMemo, useState } from 'react';
-import { Input, message } from 'antd';
+import { useEffect, useMemo, useState } from 'react';
+import { Spin, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
-import '../../styles/index.scss';
-import { API } from '../../utils/API';
-import { quickStartConfig, setQuickStartConfig } from '../../function/quickStart';
-import { helpDialogConfig, images, WORLD_TYPE, firstLogin } from '../../constant';
-import { SortSelect } from '../../components/play/SortSelect';
-import { DreamSelectionCard } from '../../components/play/DreamSelectionCard';
-import { CharacterSelectDialog } from '../../components/play/CharacterSelectDialog';
-import { CharacterPreviewDialog, PlotPreviewDialog } from '../../components/play/PreviewDialogs';
-import { HelpDialog } from '../../components/common/HelpDialog';
 
-const defaultCharacter = {
-  name: '无默认角色',
-  background: '',
-  worldType: '',
-  uuid: '',
+import '../../styles/index.scss';
+import { HelpDialog } from '../../components/common/HelpDialog';
+import { helpDialogConfig, images, firstLogin } from '../../constant';
+import { getEquipmentSlotLabel, getItemTypeLabel } from '../../constant/item';
+import { API } from '../../utils/API';
+import { ensureWarehouseProfile } from '../../utils/session';
+
+const MAX_LOADOUT_SELECTION = 10;
+
+const shellStyle = {
+  backgroundColor: 'rgba(20, 24, 28, 0.82)',
+  backgroundImage: 'none',
+  width: '90rem',
+  height: '61rem',
+  zoom: '90%',
+  padding: '1.4rem',
+  boxSizing: 'border-box',
+  display: 'flex',
+  flexDirection: 'column',
 };
 
-const sortOptions = [
-  { id: 0, name: '按 名称 排序 ↓' },
-  { id: 1, name: '按 名称 排序 ↑' },
-  { id: 2, name: '按 类型 排序 ↓' },
-  { id: 3, name: '按 类型 排序 ↑' },
-  { id: 4, name: '按 日期 排序 ↓' },
-  { id: 5, name: '按 日期 排序 ↑' },
-  { id: 6, name: '按 字数 排序 ↓' },
-  { id: 7, name: '按 字数 排序 ↑' },
-];
+const panelStyle = {
+  background: 'linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03))',
+  border: '1px solid rgba(255,255,255,0.08)',
+  borderRadius: '1.15rem',
+  color: '#fff',
+};
 
-function sortList(list, sortType) {
-  return [...list].sort((a, b) => {
-    let value1;
-    let value2;
-    if (sortType === 0) {
-      value1 = b.title;
-      value2 = a.title;
-    }
-    if (sortType === 1) {
-      value1 = a.title;
-      value2 = b.title;
-    }
-    if (sortType === 2) {
-      value1 = a.type;
-      value2 = b.type;
-    }
-    if (sortType === 3) {
-      value1 = b.type;
-      value2 = a.type;
-    }
-    if (sortType === 4) {
-      value1 = a.updateTime;
-      value2 = b.updateTime;
-    }
-    if (sortType === 5) {
-      value1 = b.updateTime;
-      value2 = a.updateTime;
-    }
-    if (sortType === 6) {
-      value1 = a.title.length + (a.descript || '').length;
-      value2 = b.title.length + (b.descript || '').length;
-    }
-    if (sortType === 7) {
-      value2 = a.title.length + (a.descript || '').length;
-      value1 = b.title.length + (b.descript || '').length;
-    }
-    return [0, 1].includes(sortType) ? value2.localeCompare(value1, 'zh') : value2 - value1;
-  });
+const chipStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  padding: '0.36rem 0.72rem',
+  borderRadius: '999px',
+  background: 'rgba(255,255,255,0.08)',
+  color: '#fff',
+  fontSize: '0.74rem',
+  lineHeight: 1.4,
+};
+
+function buildWarehouseSelectionKey(entry) {
+  return `warehouse:${entry.uuid}`;
+}
+
+function buildWarehouseSelectionLabel(entry) {
+  if (entry.entryType === 'skill_card') {
+    return `技能卡:${entry.displayName}`;
+  }
+
+  if (entry.item?.itemType === 'equipment') {
+    return `装备:${entry.displayName}`;
+  }
+
+  return `物品:${entry.displayName}`;
+}
+
+function buildEquipmentSelectionLabel(entry) {
+  return `装备:${entry.displayName}`;
+}
+
+function sanitizePlayLabel(value) {
+  return String(value || '').replaceAll(',', '，').trim();
+}
+
+function getEquipmentSlotKey(entry) {
+  return entry?.item?.itemSubType || entry?.equippedSlot || '';
+}
+
+function getEntryDisplayDescription(entry) {
+  if (!entry) {
+    return '暂无描述';
+  }
+
+  if (entry.entryType === 'skill_card') {
+    return entry.description || '暂无描述';
+  }
+
+  if (entry.item?.itemType && entry.item.itemType !== 'consumable') {
+    return entry.item?.effectLabel || entry.description || '暂无描述';
+  }
+
+  return entry.description || entry.item?.effectLabel || '暂无描述';
+}
+
+function getScriptSizeLabel(totalNodes) {
+  const count = Number(totalNodes);
+
+  if (!Number.isFinite(count) || count < 0) {
+    return '未知';
+  }
+  if (count <= 30) {
+    return '小型';
+  }
+  if (count <= 60) {
+    return '中型';
+  }
+  if (count <= 90) {
+    return '大型';
+  }
+  if (count <= 120) {
+    return '超大型';
+  }
+  return '世界级';
+}
+
+function getScriptThemeLabel(theme) {
+  const rawTheme = String(theme || '').trim();
+
+  if (!rawTheme) {
+    return '--';
+  }
+  if (rawTheme.toLowerCase() === 'coc') {
+    return rawTheme;
+  }
+
+  const themeLabelMap = {
+    horror: '惊悚',
+    mystery: '悬疑',
+    survival: '生存',
+    fantasy: '奇幻',
+    adventure: '冒险',
+    romance: '恋爱',
+    historical: '历史',
+    wuxia: '武侠',
+    xianxia: '仙侠',
+    cyberpunk: '赛博朋克',
+    scifi: '科幻',
+    'sci-fi': '科幻',
+    'science-fiction': '科幻',
+    science_fiction: '科幻',
+  };
+
+  return themeLabelMap[rawTheme.toLowerCase()] || rawTheme;
+}
+
+function getScriptDifficultyLabel(difficulty) {
+  const rawDifficulty = String(difficulty || '').trim();
+
+  if (!rawDifficulty) {
+    return '--';
+  }
+
+  const difficultyLabelMap = {
+    easy: '简单',
+    normal: '普通',
+    medium: '中等',
+    hard: '困难',
+    expert: '专家',
+    nightmare: '噩梦',
+    hell: '地狱',
+  };
+
+  return difficultyLabelMap[rawDifficulty.toLowerCase()] || rawDifficulty;
+}
+
+function SectionTitle({ title, extra = null }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: '1rem',
+        marginBottom: '0.9rem',
+      }}
+    >
+      <div style={{ fontSize: '1rem', fontWeight: 600, letterSpacing: '0.02em' }}>
+        {title}
+      </div>
+      {extra}
+    </div>
+  );
+}
+
+function ActionButton({ label, onClick, disabled = false, tone = 'green' }) {
+  const background =
+    tone === 'ghost'
+      ? 'rgba(255,255,255,0.08)'
+      : tone === 'amber'
+        ? 'rgba(148, 91, 39, 0.82)'
+        : 'rgba(28, 122, 59, 0.88)';
+
+  return (
+    <div
+      onClick={disabled ? undefined : onClick}
+      style={{
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.58 : 1,
+        padding: '0.58rem 1rem',
+        borderRadius: '999px',
+        border: '1px solid rgba(255,255,255,0.1)',
+        background,
+        color: '#fff',
+        fontSize: '0.8rem',
+        whiteSpace: 'nowrap',
+        userSelect: 'none',
+      }}
+    >
+      {label}
+    </div>
+  );
+}
+
+function MetricCard({ label, value, accent }) {
+  return (
+    <div
+      style={{
+        padding: '0.85rem',
+        borderRadius: '0.9rem',
+        background: accent,
+        border: '1px solid rgba(255,255,255,0.08)',
+      }}
+    >
+      <div style={{ color: 'rgba(255,255,255,0.58)', fontSize: '0.74rem', textAlign: 'left' }}>
+        {label}
+      </div>
+      <div style={{ color: '#fff', fontSize: '1.1rem', textAlign: 'left', marginTop: '0.35rem' }}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function SelectionChip({ label, accent = 'rgba(255,255,255,0.08)' }) {
+  return <div style={{ ...chipStyle, background: accent }}>{label}</div>;
+}
+
+function SelectionCard({
+  title,
+  subtitle,
+  description,
+  selected,
+  onClick,
+  disabled = false,
+  accent = 'rgba(53, 65, 92, 0.28)',
+  tags = [],
+}) {
+  return (
+    <div
+      onClick={disabled ? undefined : onClick}
+      style={{
+        ...panelStyle,
+        padding: '0.95rem',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.55 : 1,
+        background: selected
+          ? 'linear-gradient(180deg, rgba(28,122,59,0.42), rgba(28,122,59,0.22))'
+          : accent,
+        border: selected
+          ? '1px solid rgba(111, 221, 143, 0.68)'
+          : '1px solid rgba(255,255,255,0.08)',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          gap: '0.8rem',
+        }}
+      >
+        <div style={{ flex: 1 }}>
+          <div style={{ color: '#fff', fontSize: '0.94rem', textAlign: 'left' }}>
+            {title}
+          </div>
+          {subtitle ? (
+            <div
+              style={{
+                color: 'rgba(255,255,255,0.5)',
+                fontSize: '0.72rem',
+                textAlign: 'left',
+                marginTop: '0.25rem',
+              }}
+            >
+              {subtitle}
+            </div>
+          ) : null}
+        </div>
+        <div
+          style={{
+            ...chipStyle,
+            background: selected ? 'rgba(101, 215, 133, 0.18)' : 'rgba(255,255,255,0.08)',
+            fontSize: '0.7rem',
+          }}
+        >
+          {selected ? '已选择' : '可选择'}
+        </div>
+      </div>
+
+      {description ? (
+        <div
+          style={{
+            color: 'rgba(255,255,255,0.74)',
+            fontSize: '0.76rem',
+            lineHeight: 1.65,
+            textAlign: 'left',
+            marginTop: '0.68rem',
+          }}
+        >
+          {description}
+        </div>
+      ) : null}
+
+      {tags.length ? (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.7rem' }}>
+          {tags.map((tag) => (
+            <SelectionChip key={`${title}-${tag}`} label={tag} />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export function PlaySelectPage() {
   const navigate = useNavigate();
-  const [rawPlotList, setRawPlotList] = useState([]);
-  const [characterMap, setCharacterMap] = useState({});
-  const [showSelect, setShowSelect] = useState(true);
-  const [selectedModuleId, setSelectedModuleId] = useState(1);
-  const [selectedPlot, setSelectedPlot] = useState('');
-  const [selectedCharacter, setSelectedCharacter] = useState(defaultCharacter);
-  const [selectedPlotInfo, setSelectedPlotInfo] = useState({});
-  const [showCharacterDialog, setShowCharacterDialog] = useState(false);
-  const [searchValue, setSearchValue] = useState('');
-  const [sortType, setSortType] = useState(6);
-  const [modelList, setModelList] = useState([]);
-  const [showHelp, setShowHelp] = useState(false);
-  const [plotPreview, setPlotPreview] = useState(null);
-  const [characterPreview, setCharacterPreview] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [scriptLoading, setScriptLoading] = useState(false);
+  const [script, setScript] = useState(null);
+  const [warehouseProfile, setWarehouseProfile] = useState(null);
+  const [showHelp, setShowHelp] = useState(
+    firstLogin && helpDialogConfig.help_play_change_character.flag,
+  );
+  const [selectedLoadoutKeys, setSelectedLoadoutKeys] = useState([]);
+  const [selectedEquipmentIds, setSelectedEquipmentIds] = useState([]);
+
+  const refreshRandomScript = async () => {
+    try {
+      setScriptLoading(true);
+      const response = await API.SCRIPT_RANDOM();
+      if (response?.result !== 0 || !response.script) {
+        setScript(null);
+        message.info(response?.message || '暂无可用剧本');
+        return;
+      }
+
+      setScript(response.script);
+    } catch (error) {
+      console.error(error);
+      message.error('随机剧本加载失败');
+    } finally {
+      setScriptLoading(false);
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
+
     async function init() {
-      const { moduleList } = await API.PLAY_QUERY_MODULE_LIST();
-      const [character, plot] = await Promise.all([API.CHARACTER_LIST_ALL(), API.PLOT_LIST_ALL()]);
-      if (!mounted) {
-        return;
-      }
-      setModelList(moduleList);
-      const nextCharacterMap = {};
-      character.list.forEach((item) => {
-        const info = JSON.parse(item.info);
-        nextCharacterMap[item.uuid] = {
-          name: info.name,
-          background: info.background,
-          worldType: item.worldType,
-          uuid: item.uuid,
-          image: item.image,
-          origin: { ...item, info },
-        };
-      });
-      setCharacterMap(nextCharacterMap);
-      setRawPlotList(plot.list || []);
-      if (quickStartConfig) {
-        setShowSelect(false);
-        const selectedPlotInfo_ = (plot.list || []).find((item) => item.uuid === quickStartConfig.plot_id) || {};
-        setSelectedPlot(quickStartConfig.plot_id);
-        setSelectedPlotInfo(selectedPlotInfo_);
-        setSelectedCharacter({ ...nextCharacterMap[quickStartConfig.character_id] });
-        setQuickStartConfig(null);
+      try {
+        const [scriptResponse, nextWarehouseProfile] = await Promise.all([
+          API.SCRIPT_RANDOM(),
+          ensureWarehouseProfile(),
+        ]);
+
+        if (!mounted) {
+          return;
+        }
+
+        if (scriptResponse?.result === 0 && scriptResponse.script) {
+          setScript(scriptResponse.script);
+        }
+
+        setWarehouseProfile(nextWarehouseProfile || null);
+
+        const equippedIds = (nextWarehouseProfile?.entries || [])
+          .filter(
+            (entry) =>
+              entry.entryType === 'item' &&
+              entry.item?.itemType === 'equipment' &&
+              entry.isEquipped,
+          )
+          .map((entry) => entry.uuid);
+
+        setSelectedEquipmentIds(equippedIds);
+      } catch (error) {
+        console.error(error);
+        if (mounted) {
+          message.error('页面加载失败');
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
       }
     }
+
     init();
+
     return () => {
       mounted = false;
     };
   }, []);
 
-  const filteredPlotList = useMemo(() => {
-    const lowerSearch = searchValue.toLowerCase();
-    const filtered = rawPlotList.filter((item) => {
-      if (!lowerSearch) {
-        return true;
-      }
-      const character = item.bindCharacter ? characterMap[item.bindCharacter] || defaultCharacter : defaultCharacter;
-      const matchPlot = item.title.toLowerCase().includes(lowerSearch) || (item.descript && item.descript.toLowerCase().includes(lowerSearch));
-      const matchCharacter = (character.name || '').toLowerCase().includes(lowerSearch);
-      return matchPlot || matchCharacter;
+  const equippedEntries = useMemo(
+    () =>
+      (warehouseProfile?.entries || []).filter(
+        (entry) =>
+          entry.entryType === 'item' &&
+          entry.item?.itemType === 'equipment' &&
+          entry.isEquipped,
+      ),
+    [warehouseProfile],
+  );
+
+  const warehouseEntries = useMemo(
+    () =>
+      (warehouseProfile?.entries || []).filter(
+        (entry) =>
+          !equippedEntries.some((equippedEntry) => equippedEntry.uuid === entry.uuid),
+      ),
+    [warehouseProfile, equippedEntries],
+  );
+
+  const selectionLookup = useMemo(() => {
+    const map = new Map();
+
+    warehouseEntries.forEach((entry) => {
+      map.set(buildWarehouseSelectionKey(entry), {
+        source: 'warehouse',
+        label: buildWarehouseSelectionLabel(entry),
+        entry,
+      });
     });
-    return sortList(filtered, sortType);
-  }, [rawPlotList, searchValue, sortType, characterMap]);
 
-  const changeSelect = (id) => {
-    setSelectedPlot(id);
-    const currentPlot = rawPlotList.find((item) => item.uuid === id) || {};
-    setSelectedPlotInfo(currentPlot);
-    setSelectedCharacter(characterMap[currentPlot.bindCharacter] || defaultCharacter);
+    return map;
+  }, [warehouseEntries]);
+
+  const selectedLoadoutList = useMemo(
+    () =>
+      selectedLoadoutKeys
+        .map((key) => selectionLookup.get(key))
+        .filter(Boolean),
+    [selectedLoadoutKeys, selectionLookup],
+  );
+
+  const selectedEquipmentList = useMemo(
+    () => equippedEntries.filter((entry) => selectedEquipmentIds.includes(entry.uuid)),
+    [equippedEntries, selectedEquipmentIds],
+  );
+
+  useEffect(() => {
+    setSelectedLoadoutKeys((current) =>
+      current.filter((key) => selectionLookup.has(key)).slice(0, MAX_LOADOUT_SELECTION),
+    );
+  }, [selectionLookup]);
+
+  useEffect(() => {
+    const equippedMap = new Map(equippedEntries.map((entry) => [entry.uuid, entry]));
+    setSelectedEquipmentIds((current) => {
+      const next = [];
+      const usedSlots = new Set();
+
+      for (const id of current) {
+        const entry = equippedMap.get(id);
+        if (!entry) {
+          continue;
+        }
+
+        const slotKey = getEquipmentSlotKey(entry) || id;
+        if (usedSlots.has(slotKey)) {
+          continue;
+        }
+
+        usedSlots.add(slotKey);
+        next.push(id);
+      }
+
+      return next;
+    });
+  }, [equippedEntries]);
+
+  const toggleLoadout = (key) => {
+    setSelectedLoadoutKeys((current) => {
+      if (current.includes(key)) {
+        return current.filter((item) => item !== key);
+      }
+
+      if (current.length >= MAX_LOADOUT_SELECTION) {
+        message.info(`仓库内容最多只能选择 ${MAX_LOADOUT_SELECTION} 项`);
+        return current;
+      }
+
+      return [...current, key];
+    });
   };
 
-  const goVerify = () => {
-    if (!selectedPlot) {
-      message.info('请选择您要游玩的内容');
+  const toggleEquipment = (entry) => {
+    const entryId = entry.uuid;
+    const slotKey = getEquipmentSlotKey(entry);
+
+    setSelectedEquipmentIds((current) => {
+      if (current.includes(entryId)) {
+        return current.filter((id) => id !== entryId);
+      }
+
+      if (!slotKey) {
+        return [...current, entryId];
+      }
+
+      const next = current.filter((id) => {
+        const selectedEntry = equippedEntries.find((item) => item.uuid === id);
+        return getEquipmentSlotKey(selectedEntry) !== slotKey;
+      });
+
+      return [...next, entryId];
+    });
+  };
+
+  const handleStart = async () => {
+    if (!script?.uuid) {
+      message.info('当前没有可用剧本');
       return;
     }
-    setShowHelp(firstLogin && helpDialogConfig.help_play_change_character.flag);
-    setShowSelect(false);
+
+    const currentItems = Array.from(
+      new Set(
+        [
+          ...selectedEquipmentList.map((entry) =>
+            sanitizePlayLabel(buildEquipmentSelectionLabel(entry)),
+          ),
+          ...selectedLoadoutList.map((item) => sanitizePlayLabel(item.label)),
+        ].filter(Boolean),
+      ),
+    );
+
+    try {
+      const response = await API.PLAY_CREATE({
+        script_id: script.uuid,
+        model_id: 1,
+        currentItems,
+      });
+
+      if (response?.result !== 0 || !response?.info?.uuid) {
+        message.error(response?.message || '开始失败');
+        return;
+      }
+
+      navigate(`/play/main/${response.info.uuid}`, { replace: true });
+    } catch (error) {
+      console.error(error);
+      message.error('开始失败');
+    }
   };
 
-  const goPlay = async () => {
-    if (!selectedCharacter.uuid) {
-      message.info('请选择您要扮演的角色');
-      return;
-    }
-    const { info } = await API.PLAY_CREATE({ plot_id: selectedPlotInfo.uuid, character_id: selectedCharacter.uuid, model_id: selectedModuleId });
-    navigate(`/play/main/${info.uuid}`, { replace: true });
-  };
+  if (loading) {
+    return (
+      <div
+        className="main-container"
+        style={{
+          background: `url(${images.background3})`,
+          backgroundPosition: 'center center',
+          backgroundSize: 'cover',
+        }}
+      >
+        <img alt="logo" src={images.logo} className="login-logo" />
+        <div
+          className="mainpage-container"
+          style={{ ...shellStyle, width: '26rem', height: '15rem', justifyContent: 'center' }}
+        >
+          <Spin />
+        </div>
+        <img alt="eng-logo" src={images.eng_logo} className="login-eng-logo" />
+      </div>
+    );
+  }
 
   return (
     <>
-      <div className="main-container" style={{ background: `url(${images.background3})`, backgroundPosition: 'center center', backgroundSize: 'cover' }}>
+      <div
+        className="main-container"
+        style={{
+          background: `url(${images.background3})`,
+          backgroundPosition: 'center center',
+          backgroundSize: 'cover',
+        }}
+      >
         <img alt="logo" src={images.logo} className="login-logo" />
-        {showSelect ? (
-          <div className="mainpage-container" style={{ backgroundColor: 'rgba(71, 76 ,70, 0.7)', backgroundImage: 'none', width: '106.7rem', height: '60.8rem', zoom: '90%' }}>
-            <div className="normal-row">
-              <div className="row">
-                <img alt="back" src={images.icon_back} onClick={() => navigate(-1)} title="返回" />
-                <span style={{ fontSize: '1.45rem' }}>配梦 - 在游玩库中选择新的旅程</span>
-              </div>
-              <div className="row">
-                <img alt="setting" src={images.setting} title="设置" />
-                <img alt="question" src={images.question} title="产品帮助" />
-              </div>
+
+        <div className="mainpage-container" style={shellStyle}>
+          <div className="normal-row" style={{ marginBottom: '1rem' }}>
+            <div className="row">
+              <img alt="back" src={images.icon_back} onClick={() => navigate(-1)} title="返回" />
+              <span style={{ fontSize: '1.45rem' }}>入梦配置</span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'row', flex: 1, width: '100%', justifyContent: 'center', alignItems: 'center' }}>
-              <div className="tablelist" style={{ width: '101.75rem', height: '52.75rem', marginTop: '3rem' }}>
-                <div className="normal-row" style={{ padding: '2rem' }}>
-                  <img alt="planet" src={images.icon_planet} style={{ width: '5.85rem', height: '6.05rem' }} />
-                  <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }}>
-                    <SortSelect options={sortOptions} value={sortType} onChange={setSortType} style={{ marginRight: '3rem' }} />
-                    <Input className="search-input" placeholder="搜索" value={searchValue} onChange={(event) => setSearchValue(event.target.value)} prefix={<img alt="search" src={images.icon_search} style={{ width: '1rem', height: '1rem' }} />} />
-                    <img alt="outlook-text" src={images.outlook_text} style={{ width: '8.4rem', height: '2.8rem', marginLeft: '2rem', marginRight: '2rem' }} />
-                  </div>
-                </div>
-                <div className="outlook-item-list" style={{ overflow: 'auto' }}>
-                  {filteredPlotList.map((item) => (
-                    <DreamSelectionCard
-                      key={item.uuid}
-                      outlookInfo={item}
-                      characterInfo={item.bindCharacter ? characterMap[item.bindCharacter] || defaultCharacter : defaultCharacter}
-                      selected={selectedPlot === item.uuid}
-                      onSelect={changeSelect}
-                      onCheckPlot={setPlotPreview}
-                      onCheckCharacter={(info) => {
-                        const detail = characterMap[info.uuid]?.origin;
-                        if (detail) {
-                          setCharacterPreview(detail);
-                        }
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div className="save_btn" style={{ bottom: 'calc(38.5rem - 33.9rem - 1.7rem - 6rem)', position: 'relative' }} onClick={goVerify}>
-              <div className="messageSendBar">
-                <div className="buttonContainer" style={{ backgroundColor: 'rgba(1, 109, 29, 0.9)' }}>
-                  <div style={{ marginRight: '0.5rem' }}>
-                    <img alt="start" src={images.icon_start} />
-                  </div>
-                  <div className="buttonInfoContainer" style={{ backgroundColor: 'rgba(37, 129, 51, 0.9)' }}>
-                    <span style={{ width: '5rem', textAlign: 'center' }}> 立即开始 </span>
-                  </div>
-                </div>
-              </div>
+            <div className="row" style={{ gap: '0.7rem' }}>
+              <ActionButton
+                label={scriptLoading ? '刷新中...' : '换一个随机剧本'}
+                onClick={refreshRandomScript}
+                disabled={scriptLoading}
+                tone="amber"
+              />
+              <img
+                alt="question"
+                src={images.question}
+                title="产品帮助"
+                onClick={() => setShowHelp(true)}
+              />
             </div>
           </div>
-        ) : (
-          <div className="mainpage-container" style={{ backgroundColor: 'rgba(71, 76 ,70, 0.7)', backgroundImage: 'none', height: '60.8rem', width: '39.45rem', zoom: '90%' }}>
-            <div className="normal-row">
-              <div className="row">
-                <img alt="back" src={images.icon_back} onClick={() => setShowSelect(true)} title="返回" />
-                <span style={{ fontSize: '1.45rem' }}>配梦 - 在游玩库中选择新的旅程</span>
-              </div>
-              <div className="row">
-                <img alt="setting" src={images.setting} title="设置" />
-                <img alt="question" src={images.question} title="产品帮助" onClick={() => setShowHelp(true)} />
-              </div>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'row', flex: 1, width: '100%', justifyContent: 'center', alignItems: 'center' }}>
-              <div className="tablelist" style={{ width: '37.45rem', height: '52.75rem', marginTop: '3rem' }}>
-                <div className="normal-row" style={{ padding: '1rem 2rem' }}>
-                  <img alt="planet" src={images.icon_planet} style={{ width: '5.85rem', height: '6.05rem' }} />
-                  <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }}>
-                    <img alt="outlook-text" src={images.outlook_text} style={{ width: '8.4rem', height: '2.8rem', marginLeft: '2rem', marginRight: '2rem' }} />
-                  </div>
-                </div>
-                <div style={{ width: '100%', display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                  <div style={{ width: '24rem', display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'center', alignItems: 'center', color: 'rgb(255,255,255)', background: 'rgb(107,102,93)', marginBottom: '1rem', borderRadius: '1rem', paddingTop: '0.5rem' }}>
-                    请选择 叙述者
-                    <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '90%', background: 'rgb(60,55,44)', height: '2.5rem', padding: '0rem 1rem', borderRadius: '1rem', marginTop: '0.5rem' }}>
-                      {modelList.map((item) => (
-                        <div key={item.moduleId} style={{ background: selectedModuleId === item.moduleId ? 'rgb(77,79,76)' : 'none', width: '100%', height: '90%', color: '#fff', alignItems: 'center', justifyContent: 'center', display: 'flex', borderRadius: '1rem', cursor: 'pointer' }} onClick={() => setSelectedModuleId(item.moduleId)}>
-                          {item.showName}
-                        </div>
-                      ))}
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '0.9fr 0.92fr 1.18fr',
+              gap: '1rem',
+              flex: 1,
+              minHeight: 0,
+            }}
+          >
+            <div style={{ minHeight: 0, overflowY: 'auto', paddingRight: '0.2rem' }}>
+              <div style={{ ...panelStyle, padding: '1.1rem', minHeight: '100%' }}>
+                <SectionTitle title="剧本信息" extra={scriptLoading ? <Spin size="small" /> : null} />
+                {script ? (
+                  <>
+                    <div
+                      style={{
+                        fontSize: '1.36rem',
+                        fontWeight: 600,
+                        textAlign: 'left',
+                        lineHeight: 1.35,
+                      }}
+                    >
+                      {script.metadata?.title || '未命名剧本'}
                     </div>
-                  </div>
-                  <div className="chacater1" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', color: '#fff', borderRadius: '5rem', width: '23.25rem', padding: '1rem', marginBottom: '1.5rem', height: '6rem' }} onClick={() => setShowCharacterDialog(true)}>
-                    <div className="item-cell" style={{ cursor: 'pointer' }}>
-                      <div style={{ display: 'flex', flexDirection: 'row', marginLeft: '1rem', justifyContent: 'flex-start', alignItems: 'center' }}>
-                        <img alt="character" src={selectedCharacter.image || images.icon_character_avater} style={{ width: '3.2rem', height: '3.2rem', borderRadius: '3.2rem' }} />
-                        <div style={{ display: 'flex', flexDirection: 'column', marginLeft: '1rem', width: '13rem' }}>
-                          <span style={{ color: '#fff', fontSize: '1.65rem', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', width: '12rem', whiteSpace: 'nowrap' }}>{selectedCharacter.name}</span>
-                          <span style={{ fontSize: '1.26rem', color: 'rgb(199,199,195)', textAlign: 'left', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '12rem', marginTop: '0.3rem' }}>{selectedCharacter.background}</span>
-                          <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'center', width: '100%', marginTop: '0.3rem' }}>
-                            {(selectedCharacter.worldType?.split(',').map((item) => Number(item)) || []).map((item) => (
-                              <div key={`${selectedCharacter.uuid}-${item}`} style={{ color: '#fff', borderRadius: '1rem', padding: '0.1rem 0.5rem', marginRight: '0.2rem', background: WORLD_TYPE[item]?.color, fontSize: '1rem' }}>
-                                {WORLD_TYPE[item]?.text}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                        <img alt="change-character" src={images.icon_plot_character_change} title="更换游玩角色" />
+                    <div
+                      style={{
+                        color: 'rgba(255,255,255,0.76)',
+                        fontSize: '0.84rem',
+                        lineHeight: 1.8,
+                        textAlign: 'left',
+                        marginTop: '0.9rem',
+                      }}
+                    >
+                      {script.metadata?.description || '暂无剧本简介'}
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'minmax(0, 1fr)',
+                        gap: '0.65rem',
+                        marginTop: '1rem',
+                      }}
+                    >
+                      <MetricCard
+                        label="主题"
+                        value={getScriptThemeLabel(script.metadata?.theme)}
+                        accent="rgba(93, 79, 168, 0.28)"
+                      />
+                      <MetricCard
+                        label="难度"
+                        value={getScriptDifficultyLabel(script.metadata?.difficulty)}
+                        accent="rgba(148, 91, 39, 0.28)"
+                      />
+                      <MetricCard
+                        label="规模"
+                        value={getScriptSizeLabel(script.metadata?.totalNodes)}
+                        accent="rgba(28, 122, 59, 0.28)"
+                      />
+                      <MetricCard
+                        label="叙事模式"
+                        value="默认"
+                        accent="rgba(53, 65, 92, 0.28)"
+                      />
+                    </div>
+
+                    <div
+                      style={{
+                        marginTop: '1rem',
+                        padding: '0.95rem',
+                        borderRadius: '0.95rem',
+                        background: 'rgba(255,255,255,0.04)',
+                        border: '1px solid rgba(255,255,255,0.06)',
+                      }}
+                    >
+                      <div
+                        style={{
+                          color: '#fff',
+                          fontSize: '0.84rem',
+                          textAlign: 'left',
+                          marginBottom: '0.55rem',
+                        }}
+                      >
+                        开局说明
+                      </div>
+                      <div
+                        style={{
+                          color: 'rgba(255,255,255,0.68)',
+                          fontSize: '0.76rem',
+                          lineHeight: 1.75,
+                          textAlign: 'left',
+                        }}
+                      >
+                        左侧展示当前随机到的剧本摘要；中列选择已装备内容，右列选择仓库物品与技能。
+                        仓库物品与技能共用 10 个开局位，已穿戴装备单独选择。
                       </div>
                     </div>
+                  </>
+                ) : (
+                  <div
+                    style={{
+                      color: 'rgba(255,255,255,0.72)',
+                      fontSize: '0.84rem',
+                      lineHeight: 1.8,
+                      textAlign: 'left',
+                    }}
+                  >
+                    当前没有可展示的随机剧本。
                   </div>
-                  <div className="outlook-item" style={{ height: '27.5rem', width: '23.25rem', marginLeft: 0, padding: '1rem' }}>
-                    <div className="normal-row" style={{ alignItems: 'flex-end' }}>
-                      <img alt="like" src={images.icon_like} title="点赞" style={{ cursor: 'pointer', width: '2.6rem', height: '2.6rem' }} />
-                      <img alt="detail" src={images.icon_cycle_right} title="查看详情" style={{ cursor: 'pointer', width: '2.6rem', height: '2.6rem' }} onClick={() => setPlotPreview(selectedPlotInfo)} />
-                    </div>
-                    <span style={{ marginTop: '0.91rem', fontSize: '1rem' }}>{selectedPlotInfo.title}</span>
-                    <span className="outlook-item-detail" style={{ height: '5.1rem', fontSize: '0.9rem', color: 'rgb(199,199,195)', textAlign: 'left' }}>{selectedPlotInfo.descript}</span>
-                    <img alt="cover" style={{ width: '23.25rem', height: '13.1rem', borderRadius: '0.5rem', marginTop: '0.7rem' }} src={selectedPlotInfo.images || images.background3} />
-                    <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', width: '100%', marginTop: '1rem' }}>
-                      {(selectedPlotInfo.worldType ? selectedPlotInfo.worldType.split(',') : []).map((item) => (
-                        <div key={`${selectedPlotInfo.uuid}-${item}`} style={{ color: '#fff', borderRadius: '1rem', padding: '0.1rem 0.5rem', marginLeft: '0.3rem', background: WORLD_TYPE[item]?.color, fontSize: '1rem' }}>{WORLD_TYPE[item]?.text}</div>
-                      ))}
-                    </div>
+                )}
+              </div>
+            </div>
+
+            <div style={{ minHeight: 0, overflowY: 'auto', paddingRight: '0.2rem' }}>
+              <div style={{ ...panelStyle, padding: '1.1rem', marginBottom: '1rem' }}>
+                <SectionTitle title="当前配置" />
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                    gap: '0.65rem',
+                  }}
+                >
+                  <MetricCard
+                    label="仓库内容"
+                    value={`${selectedLoadoutList.length}/${MAX_LOADOUT_SELECTION}`}
+                    accent="rgba(28, 122, 59, 0.28)"
+                  />
+                  <MetricCard
+                    label="已选装备"
+                    value={selectedEquipmentList.length}
+                    accent="rgba(148, 91, 39, 0.28)"
+                  />
+                  <MetricCard
+                    label="总配置数"
+                    value={selectedEquipmentList.length + selectedLoadoutList.length}
+                    accent="rgba(53, 65, 92, 0.28)"
+                  />
+                </div>
+
+                <div style={{ marginTop: '0.95rem' }}>
+                  <div
+                    style={{
+                      color: '#fff',
+                      fontSize: '0.82rem',
+                      textAlign: 'left',
+                      marginBottom: '0.55rem',
+                    }}
+                  >
+                    将被带入开局的内容
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem' }}>
+                    {selectedEquipmentList.map((entry) => (
+                      <SelectionChip
+                        key={`selected-equipment-${entry.uuid}`}
+                        label={buildEquipmentSelectionLabel(entry)}
+                        accent="rgba(148, 91, 39, 0.28)"
+                      />
+                    ))}
+                    {selectedLoadoutList.map((item) => (
+                      <SelectionChip
+                        key={`selected-loadout-${item.source}-${item.entry.uuid}`}
+                        label={item.label}
+                        accent={
+                          item.entry?.entryType === 'skill_card'
+                            ? 'rgba(93, 79, 168, 0.28)'
+                            : 'rgba(53, 65, 92, 0.28)'
+                        }
+                      />
+                    ))}
+                    {!selectedEquipmentList.length && !selectedLoadoutList.length ? (
+                      <SelectionChip label="尚未选择任何配置" />
+                    ) : null}
                   </div>
                 </div>
               </div>
+
+              <div style={{ ...panelStyle, padding: '1.1rem', marginBottom: '1rem' }}>
+                <SectionTitle
+                  title="身上装备"
+                  extra={
+                    <div style={{ color: 'rgba(255,255,255,0.56)', fontSize: '0.76rem' }}>
+                      不占用 10 个仓库位
+                    </div>
+                  }
+                />
+                {equippedEntries.length ? (
+                  <div style={{ display: 'grid', gap: '0.8rem' }}>
+                    {equippedEntries.map((entry) => (
+                      <SelectionCard
+                        key={entry.uuid}
+                        title={entry.displayName}
+                        subtitle={getEquipmentSlotLabel(entry.item?.itemSubType) || '装备'}
+                        description={getEntryDisplayDescription(entry)}
+                        selected={selectedEquipmentIds.includes(entry.uuid)}
+                        onClick={() => toggleEquipment(entry)}
+                        accent="rgba(25, 73, 51, 0.28)"
+                        tags={[
+                          getItemTypeLabel(entry.item?.itemType),
+                          getEquipmentSlotLabel(entry.item?.itemSubType),
+                          ...(entry.entryAffixes?.map((item) => item.name) || []).slice(0, 2),
+                        ].filter(Boolean)}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      color: 'rgba(255,255,255,0.72)',
+                      fontSize: '0.82rem',
+                      textAlign: 'left',
+                    }}
+                  >
+                    当前没有已装备的道具。
+                  </div>
+                )}
+              </div>
             </div>
-            {showCharacterDialog && <CharacterSelectDialog selectedCharacter={selectedCharacter} onClose={() => setShowCharacterDialog(false)} onSelect={(item) => { setSelectedCharacter({ name: item.info.name, background: item.info.background, worldType: item.worldType, uuid: item.uuid, image: item.image }); setShowCharacterDialog(false); }} />}
-            <div className="save_btn" style={{ bottom: 'calc(38.5rem - 33.9rem - 1.7rem - 6rem)', position: 'relative' }} onClick={goPlay}>
-              <div className="messageSendBar">
-                <div className="buttonContainer" style={{ backgroundColor: 'rgba(1, 109, 29, 0.9)' }}>
-                  <div style={{ marginRight: '0.5rem' }}>
-                    <img alt="start" src={images.icon_start} />
+
+            <div style={{ minHeight: 0, overflowY: 'auto', paddingRight: '0.2rem' }}>
+              <div style={{ ...panelStyle, padding: '1.1rem', marginBottom: '1rem' }}>
+                <SectionTitle
+                  title="仓库内容"
+                  extra={
+                    <div style={{ color: 'rgba(255,255,255,0.56)', fontSize: '0.76rem' }}>
+                      最多选择 10 项
+                    </div>
+                  }
+                />
+                {warehouseEntries.length ? (
+                  <div style={{ display: 'grid', gap: '0.8rem' }}>
+                    {warehouseEntries.map((entry) => {
+                      const key = buildWarehouseSelectionKey(entry);
+                      const selected = selectedLoadoutKeys.includes(key);
+                      const disabled =
+                        !selected && selectedLoadoutKeys.length >= MAX_LOADOUT_SELECTION;
+
+                      return (
+                        <SelectionCard
+                          key={entry.uuid}
+                          title={entry.displayName}
+                          subtitle={
+                            entry.entryType === 'skill_card'
+                              ? '技能卡'
+                              : entry.item?.itemType === 'equipment'
+                                ? getEquipmentSlotLabel(entry.item?.itemSubType) || '装备'
+                                : getItemTypeLabel(entry.item?.itemType) || '物品'
+                          }
+                          description={getEntryDisplayDescription(entry)}
+                          selected={selected}
+                          disabled={disabled}
+                          onClick={() => toggleLoadout(key)}
+                          accent={
+                            entry.entryType === 'skill_card'
+                              ? 'rgba(93, 79, 168, 0.28)'
+                              : entry.item?.itemType === 'weapon'
+                                ? 'rgba(140, 59, 32, 0.28)'
+                                : entry.item?.itemType === 'equipment'
+                                  ? 'rgba(25, 73, 51, 0.28)'
+                                  : 'rgba(53, 65, 92, 0.28)'
+                          }
+                          tags={[
+                            entry.entryType === 'skill_card'
+                              ? '技能卡'
+                              : getItemTypeLabel(entry.item?.itemType),
+                            entry.item?.itemType === 'equipment'
+                              ? getEquipmentSlotLabel(entry.item?.itemSubType)
+                              : null,
+                            `数量 ${entry.quantity}`,
+                          ].filter(Boolean)}
+                        />
+                      );
+                    })}
                   </div>
-                  <div className="buttonInfoContainer" style={{ backgroundColor: 'rgba(37, 129, 51, 0.9)' }}>
-                    <span style={{ width: '5rem', textAlign: 'center' }}> 立即开始 </span>
+                ) : (
+                  <div
+                    style={{
+                      color: 'rgba(255,255,255,0.72)',
+                      fontSize: '0.82rem',
+                      textAlign: 'left',
+                    }}
+                  >
+                    仓库中暂无可配置内容。
                   </div>
-                </div>
+                )}
               </div>
             </div>
           </div>
-        )}
+
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginTop: '1rem',
+              gap: '1rem',
+            }}
+          >
+            <ActionButton label="开始" onClick={handleStart} disabled={!script?.uuid} />
+          </div>
+        </div>
+
         <img alt="eng-logo" src={images.eng_logo} className="login-eng-logo" />
       </div>
-      {showHelp && <HelpDialog id="help_play_change_character" onClose={() => setShowHelp(false)} />}
-      <PlotPreviewDialog plot={plotPreview} onClose={() => setPlotPreview(null)} />
-      <CharacterPreviewDialog character={characterPreview} onClose={() => setCharacterPreview(null)} />
+
+      {showHelp ? (
+        <HelpDialog
+          id="help_play_change_character"
+          onClose={() => setShowHelp(false)}
+        />
+      ) : null}
     </>
   );
 }

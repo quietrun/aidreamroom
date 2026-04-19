@@ -53,17 +53,9 @@ export function AppRoutes() {
         <Route path="/mobile/role/create" element={<ProtectedRoute><MobileRoleCreatePage /></ProtectedRoute>} />
         <Route path="/mobile/play/select" element={<ProtectedRoute requireRole><MobilePlaySelectPage /></ProtectedRoute>} />
         <Route path="/mobile/play/main/:id" element={<ProtectedRoute requireRole><MobilePlayMainPage /></ProtectedRoute>} />
-        <Route path="/createdream" element={<ProtectedRoute><ComingSoonPage title="造梦入口" /></ProtectedRoute>} />
-        <Route path="/outlook/list" element={<ProtectedRoute><ComingSoonPage title="世界观列表" /></ProtectedRoute>} />
-        <Route path="/outlook/create/:id" element={<ProtectedRoute><ComingSoonPage title="世界观编辑" /></ProtectedRoute>} />
-        <Route path="/plot/list" element={<ProtectedRoute><ComingSoonPage title="剧情列表" /></ProtectedRoute>} />
-        <Route path="/plot/create/:id" element={<ProtectedRoute><ComingSoonPage title="剧情编辑" /></ProtectedRoute>} />
         <Route path="/userPage/:id" element={<ProtectedRoute><ComingSoonPage title="用户主页" /></ProtectedRoute>} />
         <Route path="/sharedPage/:id" element={<ProtectedRoute><ComingSoonPage title="共享页" /></ProtectedRoute>} />
         <Route path="/test" element={<ProtectedRoute><ComingSoonPage title="测试页" /></ProtectedRoute>} />
-        <Route path="/character" element={<ProtectedRoute><ComingSoonPage title="角色编辑" /></ProtectedRoute>} />
-        <Route path="/viewDreamPage" element={<ProtectedRoute><ComingSoonPage title="观梦页" /></ProtectedRoute>} />
-        <Route path="/material" element={<ProtectedRoute><ComingSoonPage title="素材库" /></ProtectedRoute>} />
       </Routes>
     </Suspense>
   );

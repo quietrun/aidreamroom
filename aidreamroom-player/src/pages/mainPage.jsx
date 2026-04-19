@@ -3,10 +3,8 @@ import { message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import '../styles/index.scss';
 import { clearLogin } from '../function/loginCheck';
-import { setQuickStartConfig } from '../function/quickStart';
 import { images, firstLogin, helpDialogConfig } from '../constant';
 import { HelpDialog } from '../components/common/HelpDialog';
-import { quickStartList } from '../data/quickStartList';
 import { ensureUserInfo, getCachedUserInfo } from '../utils/session';
 
 export function MainPage() {
@@ -49,11 +47,6 @@ export function MainPage() {
     }
   };
 
-  const quickStart = (item) => {
-    setQuickStartConfig({ plot_id: item.plot_id, character_id: item.character_id });
-    navigate('/play/select');
-  };
-
   return (
     <div className="main-container">
       <img alt="logo" className="login-logo" src={images.logo} />
@@ -86,17 +79,6 @@ export function MainPage() {
         </div>
         <img alt="avatar" src={images.avater} style={{ width: '5.9rem', height: '5.9rem', borderRadius: '5.9rem', position: 'absolute', left: '-2.5rem', bottom: '-2.5rem' }} />
       </div>
-      {/* <div className="save_btn" style={{ bottom: 'calc(50vh + 18.5rem + 1.7rem + 1rem)', cursor: 'auto' }}>
-        <div style={{ height: '6.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '1rem', backgroundImage: `url(${images.quick_start})`, backgroundPosition: 'center center', backgroundSize: 'contain' }}>
-          <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: '3rem' }}>
-            {quickStartList.map((item) => (
-              <div key={item.plot_id} style={{ borderRadius: '0.5rem', background: item.color, marginLeft: '0.5rem', marginRight: '0.5rem', width: '6rem', height: '1.8rem', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer' }} onClick={() => quickStart(item)}>
-                <span style={{ color: '#FFF', fontSize: '0.7rem' }}>{item.title}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div> */}
       <div className="mainpage-container">
         <div className="normal-row">
           <span>AI Dreamroom Beta 0.9.2 欢迎加入交流QQ群 271523919</span>
@@ -107,10 +89,10 @@ export function MainPage() {
           </div>
         </div>
         <div className="normal-row" style={{ justifyContent: 'center' }}>
-          <div className="button-group" onClick={() => navigate('/viewDreamPage')}>
+          <div className="button-group" onClick={() => navigate('/mepage')}>
             <img alt="join" src={images.join} />
             <div className="info-text">
-              <span>查看社区中的精彩 世界观 剧情 角色</span>
+              <span>查看角色档案与冒险记录</span>
               <img alt="entry" src={images.entry_cycle} />
             </div>
           </div>
@@ -121,10 +103,10 @@ export function MainPage() {
               <img alt="entry" src={images.entry_cycle} />
             </div>
           </div>
-          <div className="button-group" onClick={() => navigate('/createdream')}>
+          <div className="button-group" onClick={() => navigate('/warehouse')}>
             <img alt="make" src={images.make} />
             <div className="info-text">
-              <span>与艾达一起创建无限 世界观 剧情 角色</span>
+              <span>整理仓库、技能与开局装备</span>
               <img alt="entry" src={images.entry_cycle} />
             </div>
           </div>

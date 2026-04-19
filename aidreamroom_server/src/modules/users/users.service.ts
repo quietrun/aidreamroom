@@ -154,18 +154,6 @@ export class UsersService {
     return this.db.query('select * from user_like_table where userId = ?', [userId]);
   }
 
-  async queryLikedListDetail(userId: string) {
-    const list = await this.queryLikedList(userId) as Array<{ itemId: string; itemType: number }>;
-    const outlookIds = list.filter((item) => Number(item.itemType) === 0).map((item) => item.itemId);
-    const plotIds = list.filter((item) => Number(item.itemType) === 1).map((item) => item.itemId);
-    const characterIds = list.filter((item) => Number(item.itemType) !== 0 && Number(item.itemType) !== 1).map((item) => item.itemId);
-
-    const outlook = await this.queryRowsByIds('outlook_info_table', outlookIds);
-    const plot = await this.queryRowsByIds('plot_info_table', plotIds);
-    const character = await this.queryRowsByIds('character_info_table', characterIds);
-    return { outlook, plot, character };
-  }
-
   async applyRegister(account: string) {
     const current = await this.db.findFirst('select * from user_register_table where account = ?', [account]);
     if (current) {
@@ -234,7 +222,7 @@ export class UsersService {
     const result = {
       uuid: userId,
       user_id: userIdText,
-      user_name: `娓稿${Date.now()}`,
+      user_name: `新玩家${Date.now()}`,
       user_phone: isChinesePhoneNumber(account) ? account : '',
       user_email: isChinesePhoneNumber(account) ? '' : account,
       user_avater: '',
@@ -244,21 +232,11 @@ export class UsersService {
   }
 
   async queryMoreDetail(userId: string, sharedOnly: boolean) {
-    const plotSql = sharedOnly
-      ? 'select * from plot_info_table where creator = ? and isShared = ?'
-      : 'select * from plot_info_table where creator = ?';
-    const elementSql = sharedOnly
-      ? 'select * from element_item_table where creator = ? and isShared = ?'
-      : 'select * from element_item_table where creator = ?';
-
-    const [play, character, plot, elements] = await Promise.all([
-      this.db.query('select * from play_config where creator = ?', [userId]),
-      this.db.query('select * from character_info_table where creater = ?', [userId]),
-      this.db.query(plotSql, sharedOnly ? [userId, true] : [userId]),
-      this.db.query(elementSql, sharedOnly ? [userId, true] : [userId]),
-    ]);
-
-    return { play, character, plot, elements };
+    const playSql = sharedOnly
+      ? 'select * from play_config where creator = ? and plot_id in (select script_id from play_runtime_table)'
+      : 'select * from play_config where creator = ?';
+    const play = await this.db.query(playSql, [userId]);
+    return { play };
   }
 
   async checkUserNameRepeat(userName: string) {
@@ -364,4 +342,3 @@ export class UsersService {
     return this.db.query(`select * from ${table} where uuid in (${inClause.sql})`, inClause.params);
   }
 }
-

@@ -12,7 +12,8 @@ export class LegacyDbService {
     statement: string,
     params: QueryParam[] = [],
   ): Promise<T[]> {
-    return this.prisma.$queryRawUnsafe(statement, ...params) as Promise<T[]>;
+    const rows = await this.prisma.$queryRawUnsafe<Record<string, unknown>[]>(statement, ...params);
+    return this.normalizeQueryResult(rows) as T[];
   }
 
   async execute(
@@ -59,5 +60,28 @@ export class LegacyDbService {
     }
 
     return String(value);
+  }
+
+  private normalizeQueryResult(value: unknown): unknown {
+    if (typeof value === 'bigint') {
+      return this.normalizeBigInt(value);
+    }
+
+    if (Array.isArray(value)) {
+      return value.map((item) => this.normalizeQueryResult(item));
+    }
+
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(
+        Object.entries(value).map(([key, item]) => [key, this.normalizeQueryResult(item)]),
+      );
+    }
+
+    return value;
+  }
+
+  private normalizeBigInt(value: bigint) {
+    const asNumber = Number(value);
+    return Number.isSafeInteger(asNumber) ? asNumber : value.toString();
   }
 }

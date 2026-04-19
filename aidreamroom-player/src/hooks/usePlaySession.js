@@ -1,7 +1,56 @@
-﻿import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { message } from 'antd';
 import { API } from '../utils/API';
 import { images } from '../constant';
+
+function parseCharacterInfo(character) {
+  if (!character) {
+    return null;
+  }
+
+  try {
+    return {
+      ...character,
+      info:
+        typeof character.info === 'string'
+          ? JSON.parse(character.info || '{}')
+          : character.info || {},
+    };
+  } catch {
+    return {
+      ...character,
+      info: {},
+    };
+  }
+}
+
+function buildBoardList(snapshot) {
+  if (!snapshot) {
+    return [[], []];
+  }
+
+  return [snapshot.inventoryLabels || [], snapshot.objectiveLabels || []];
+}
+
+function getSocketReadyStateLabel(readyState) {
+  switch (readyState) {
+    case 0:
+      return 'CONNECTING';
+    case 1:
+      return 'OPEN';
+    case 2:
+      return 'CLOSING';
+    case 3:
+      return 'CLOSED';
+    default:
+      return 'UNKNOWN';
+  }
+}
+
+function logPlaySocket(level, eventName, payload = {}) {
+  const logger = console[level] || console.log;
+  logger.call(console, '[play-ws]', eventName, payload);
+}
 
 export function usePlaySession({ gameId, socketUrl }) {
   const [plotInfo, setPlotInfo] = useState(null);
@@ -30,61 +79,125 @@ export function usePlaySession({ gameId, socketUrl }) {
     let mounted = true;
 
     async function init() {
-      const { plot, character, game, plotList } = await API.PLAT_QUERY_INFO({ id: gameId });
-      const { moduleList } = await API.PLAY_QUERY_MODULE_LIST();
-      const { config } = await API.PLAY_QUERY_TIMES_REMAIN();
+      try {
+      const [{ plot, script, character, game, runtime }, { moduleList }, { config }] =
+        await Promise.all([
+          API.PLAT_QUERY_INFO({ id: gameId }),
+          API.PLAY_QUERY_MODULE_LIST(),
+          API.PLAY_QUERY_TIMES_REMAIN(),
+        ]);
       if (!mounted) {
         return;
       }
+
       const remainMap = {};
-      config.forEach((item) => {
+      (config || []).forEach((item) => {
         remainMap[item.moduleId] = item.times;
       });
-      setRemainTimes(remainMap);
-      setModelList(moduleList);
-      setCurrentModuleId(game.model_id);
-      const currentModule = moduleList.find((item) => item.moduleId === game.model_id);
-      setCurrentModuleName(currentModule?.showName || '');
-      setRemainTime(game.model_id in remainMap ? remainMap[game.model_id] : '无限');
-      setGameInfo(game);
-      setIsFinish(Boolean(game.isFinish));
-      setPlotInfo(plot);
-      setCharacterInfo({ ...character, info: JSON.parse(character.info) });
-      setBoardList([game.currentItems?.split(',') || [], [plot.plotTarget || '随意探索']]);
-      setPlotItemList(plotList || []);
 
+      setRemainTimes(remainMap);
+      setModelList(moduleList || []);
+      setCurrentModuleId(game?.model_id || 1);
+      const currentModule = (moduleList || []).find(
+        (item) => item.moduleId === (game?.model_id || 1),
+      );
+      setCurrentModuleName(currentModule?.showName || '');
+      setRemainTime(
+        game?.model_id in remainMap ? remainMap[game.model_id] : '无限',
+      );
+      setGameInfo(game || null);
+      setIsFinish(Boolean(game?.isFinish || runtime?.state?.status === 'finished'));
+      setPlotInfo(script || plot || null);
+      setCharacterInfo(parseCharacterInfo(character));
+      setPlotItemList([]);
+      setBoardList(buildBoardList(runtime?.snapshot));
+      setMessageList(runtime?.messages || []);
+
+      logPlaySocket('info', 'connecting', {
+        gameId,
+        socketUrl,
+      });
       const socket = new WebSocket(socketUrl);
       socketRef.current = socket;
       socket.onopen = () => {
+        logPlaySocket('info', 'open', {
+          gameId,
+          socketUrl,
+          readyState: getSocketReadyStateLabel(socket.readyState),
+        });
+        logPlaySocket('info', 'send', {
+          gameId,
+          func: 'connect',
+        });
         socket.send(JSON.stringify({ func: 'connect', gameId }));
       };
       socket.onmessage = async (event) => {
         const response = JSON.parse(event.data);
+        logPlaySocket('info', 'message', {
+          gameId,
+          func: response.func,
+          readyState: getSocketReadyStateLabel(socket.readyState),
+        });
         switch (response.func) {
           case 'chat': {
-            setMessageList((current) => [...current, { message: response.message, character: response.character, func: 'chat' }]);
+            setMessageList((current) => [
+              ...current,
+              {
+                message: response.message,
+                character: response.character,
+                func: 'chat',
+              },
+            ]);
             closeWaiting();
             break;
           }
           case 'image': {
-            setMessageList((current) => [...current, { message: response.message, character: response.character, func: 'image' }]);
+            setMessageList((current) => [
+              ...current,
+              {
+                message: response.message,
+                character: response.character,
+                func: 'image',
+              },
+            ]);
             closeWaiting();
             break;
           }
           case 'roll': {
-            const data = response.data;
+            const data = response.data || {};
             setMessageList((current) => [
               ...current,
-              { message: `正在roll点，本次校验的属性为：${data.metricsInfo?.name}`, character: 'system', func: 'chat' },
-              { message: `您的点数为${data.rollData}, 目标数值为${data.targetData},结果为：${data.rollData >= data.targetData ? '成功' : '失败'}`, character: 'system', func: 'chat' },
+              {
+                message: `正在 roll 点，本次校验属性为：${data.type || '未知属性'}`,
+                character: 'system',
+                func: 'chat',
+              },
+              {
+                message: `你的点数为 ${data.rollData}，目标数值为 ${data.targetData}，结果为：${data.rollData <= data.targetData ? '成功' : '失败'}`,
+                character: 'system',
+                func: 'chat',
+              },
             ]);
             closeWaiting();
             break;
           }
           case 'history': {
-            const responseData = await fetch(response.url);
-            const historyMessages = JSON.parse(await responseData.text());
-            setMessageList((current) => [...historyMessages, ...current]);
+            if (Array.isArray(response.messages)) {
+              setMessageList(response.messages);
+            } else if (response.url) {
+              const responseData = await fetch(response.url);
+              const historyMessages = JSON.parse(await responseData.text());
+              setMessageList(historyMessages);
+            }
+            break;
+          }
+          case 'state': {
+            setBoardList(buildBoardList(response.state));
+            setIsFinish(response.state?.status === 'finished');
+            setGameInfo((current) => ({
+              ...(current || {}),
+              snapshot: response.state,
+            }));
             break;
           }
           case 'finish': {
@@ -94,16 +207,48 @@ export function usePlaySession({ gameId, socketUrl }) {
             break;
           }
           case 'items': {
-            setBoardList((current) => [response.items.split(','), current[1] || []]);
+            const items = String(response.items || '')
+              .split(',')
+              .map((item) => item.trim())
+              .filter(Boolean);
+            setBoardList((current) => [items, current[1] || []]);
+            break;
+          }
+          case 'error': {
+            message.info(response.message || '连接异常');
+            closeWaiting();
             break;
           }
           default:
             break;
         }
       };
-      socket.onerror = () => {
+      socket.onerror = (event) => {
+        logPlaySocket('error', 'error', {
+          gameId,
+          socketUrl,
+          readyState: getSocketReadyStateLabel(socket.readyState),
+          event,
+        });
         closeWaiting();
       };
+      socket.onclose = (event) => {
+        logPlaySocket('warn', 'close', {
+          gameId,
+          socketUrl,
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean,
+        });
+        closeWaiting();
+      };
+      } catch (error) {
+        logPlaySocket('error', 'init-failed', {
+          gameId,
+          socketUrl,
+          error,
+        });
+      }
     }
 
     init();
@@ -114,6 +259,11 @@ export function usePlaySession({ gameId, socketUrl }) {
         window.clearInterval(waitingEventRef.current);
       }
       if (socketRef.current) {
+        logPlaySocket('info', 'cleanup-close', {
+          gameId,
+          socketUrl,
+          readyState: getSocketReadyStateLabel(socketRef.current.readyState),
+        });
         socketRef.current.close();
       }
     };
@@ -157,8 +307,35 @@ export function usePlaySession({ gameId, socketUrl }) {
       message.info('该模型当前已无使用次数，请明日继续');
       return false;
     }
-    socketRef.current?.send(JSON.stringify({ func: 'chat', message: trimmed, character: 'me', moduleId: moduleIdRef.current }));
-    setMessageList((current) => [...current, { func: 'chat', message: trimmed, character: 'me' }]);
+    if (!socketRef.current || socketRef.current.readyState !== 1) {
+      logPlaySocket('warn', 'send-skipped', {
+        gameId,
+        socketUrl,
+        readyState: getSocketReadyStateLabel(socketRef.current?.readyState),
+        func: 'chat',
+        moduleId: moduleIdRef.current,
+      });
+      message.info('当前连接尚未建立，请稍后重试');
+      return false;
+    }
+    logPlaySocket('info', 'send', {
+      gameId,
+      func: 'chat',
+      moduleId: moduleIdRef.current,
+      messageLength: trimmed.length,
+    });
+    socketRef.current.send(
+      JSON.stringify({
+        func: 'chat',
+        message: trimmed,
+        character: 'me',
+        moduleId: moduleIdRef.current,
+      }),
+    );
+    setMessageList((current) => [
+      ...current,
+      { func: 'chat', message: trimmed, character: 'me' },
+    ]);
     if (remainTime !== '无限') {
       setRemainTime((current) => {
         const next = Number(current) - 1;

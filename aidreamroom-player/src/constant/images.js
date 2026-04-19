@@ -131,7 +131,6 @@ import join from '@/join.png'
 import login_container from '@/login-container.png'
 import logo from '@/logo.png'
 import make from '@/make.png'
-import material_text from '@/material_text.png'
 import outlook_text from '@/outlook_text.png'
 import phone_bg from '@/phone-bg.png'
 import phone_left_bg from '@/phone-left-bg.png'
@@ -283,7 +282,6 @@ export const images = {
     login_container,
     logo,
     make,
-    material_text,
     outlook_text,
     phone_bg,
     phone_left_bg,

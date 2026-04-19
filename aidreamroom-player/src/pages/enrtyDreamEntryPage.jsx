@@ -57,7 +57,7 @@ export function EntryDreamPage() {
             <div className="button-group-create" onClick={() => navigate('/play/select')} style={{ background: `url(${images.btn_entry_new})`, backgroundSize: 'contain', width: '36.7rem', height: '13.75rem', marginRight: 0 }}>
               <div style={{ marginBottom: '2rem', flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'flex-end', width: '100%', display: 'flex' }}>
                 <div className="info-text" style={{ width: '16rem', marginRight: '1rem' }}>
-                  <span>配梦 - 配置新的 世界观 剧情 角色</span>
+                  <span>入梦 - 开始一段新的梦境</span>
                   <img alt="entry" src={images.entry_cycle} />
                 </div>
               </div>
