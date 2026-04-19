@@ -342,4 +342,5 @@ export type PlayMessageRecord = {
   func: 'chat' | 'image';
   message: string;
   character: string;
+  speaker?: string;
 };

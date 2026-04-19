@@ -7,7 +7,6 @@ import {
   appendGameEvent,
   applyRuleResult,
   buildClientSnapshot,
-  buildFallbackNarration,
   buildNarrationPrompt,
   executeRule,
   normalizeNarrationOutput,
@@ -268,16 +267,25 @@ class GameSocketSession {
       character: this.character,
     });
     const llmRaw = await this.gptService.generateStructuredMessage(prompt, moduleId);
-    const narration =
-      normalizeNarrationOutput(llmRaw) ??
-      buildFallbackNarration({
-        bundle: this.bundle,
-        state: nextState,
-        ruleResult,
+    const narration = normalizeNarrationOutput(llmRaw);
+
+    if (!narration || (!narration.narration && narration.npc_dialogues.length === 0)) {
+      this.refundLimit(moduleId);
+      this.logger.warn(
+        `[${this.sessionId}] AI narration unavailable gameId=${this.gameId} moduleId=${moduleId}; turn was not advanced`,
+      );
+      this.messages = this.messages.filter((item) => item !== playerMessage);
+      this.sendPayload({
+        func: 'error',
+        message: 'AI 生成失败，请检查模型配置或稍后重试。',
+        refundModuleId: moduleId,
       });
+      await this.sendState();
+      return;
+    }
 
     this.state = nextState;
-    await this.emitTurn(ruleResult, narration);
+    await this.emitTurn(narration);
     await this.playService.saveTurnLog({
       gameId: this.gameId,
       turn: nextState.turnCount,
@@ -314,24 +322,26 @@ class GameSocketSession {
     return enabled;
   }
 
-  private async emitTurn(ruleResult: ReturnType<typeof executeRule>, narration: NarrationOutput) {
-    if (ruleResult.roll) {
-      this.sendPayload({
-        func: 'roll',
-        data: {
-          rollData: ruleResult.roll.rollData,
-          targetData: ruleResult.roll.targetData,
-          type: ruleResult.roll.type,
-          difficulty: ruleResult.roll.difficulty,
-        },
-      });
-    }
+  private refundLimit(moduleId: number) {
+    this.userRemainConfig = this.userRemainConfig.map((item) => {
+      if (item.moduleId !== moduleId) {
+        return item;
+      }
 
+      return {
+        ...item,
+        times: item.times + 1,
+      };
+    });
+  }
+
+  private async emitTurn(narration: NarrationOutput) {
     if (narration.narration) {
       await this.sendChat({
         func: 'chat',
         message: narration.narration,
-        character: 'system',
+        character: 'narrator',
+        speaker: '艾达 AIDR（叙述者）',
       });
     }
 
@@ -340,16 +350,9 @@ class GameSocketSession {
         this.bundle?.npcsById[dialogue.npcId]?.name ?? dialogue.npcId;
       await this.sendChat({
         func: 'chat',
-        message: `${npcName}：${dialogue.text}`,
+        message: dialogue.text,
         character: dialogue.npcId,
-      });
-    }
-
-    if (narration.feedback) {
-      await this.sendChat({
-        func: 'chat',
-        message: narration.feedback,
-        character: 'system',
+        speaker: npcName,
       });
     }
 

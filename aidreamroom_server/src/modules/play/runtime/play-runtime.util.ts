@@ -1225,6 +1225,8 @@ export function buildNarrationPrompt(params: {
     '你是受控的文字 RPG 叙事引擎。',
     '你只能基于 authoritative_state、flavor_context、rule_result 输出，不得创造不存在的地点、物品、NPC、结局或状态变化。',
     '如果 rule_result.success 为 false，需要写出合理失败反馈，但不能强行推进剧情。',
+    '输出只面向玩家阅读的故事内容：narration 写旁白，npc_dialogues 写 NPC 台词。',
+    '不要在输出中展示 roll 点、属性名、点数、目标数值、检定结果、规则执行摘要或“当前场景”这类系统信息。',
     '请严格返回 JSON，不要使用 Markdown 代码块。',
     'JSON Schema: {"narration":"string","npc_dialogues":[{"npcId":"string","text":"string"}],"feedback":"string","ui_hints":["string"]}',
     `authoritative_state=${JSON.stringify(authoritativeState)}`,
@@ -1233,29 +1235,6 @@ export function buildNarrationPrompt(params: {
     `rule_result=${JSON.stringify(ruleResult)}`,
     `player_input=${JSON.stringify(playerInput)}`,
   ].join('\n');
-}
-
-export function buildFallbackNarration(params: {
-  bundle: PlayScriptBundle;
-  state: PlayGameState;
-  ruleResult: RuleResult;
-}): NarrationOutput {
-  const { bundle, state, ruleResult } = params;
-  const currentNode = getCurrentNode(bundle, state);
-  const currentLocation = getCurrentLocation(bundle, state);
-  const narration =
-    ruleResult.actionResults.map((item) => item.summary).join('，') ||
-    `你仍停留在 ${currentLocation.name}。`;
-  const feedback = ruleResult.success
-    ? `当前场景：${currentNode.title || currentLocation.name}`
-    : ruleResult.reason ?? '这次行动未能产生预期效果。';
-
-  return {
-    narration,
-    npc_dialogues: [],
-    feedback,
-    ui_hints: buildObjectives(bundle, state).slice(0, 3),
-  };
 }
 
 export function normalizeNarrationOutput(raw: string | null) {

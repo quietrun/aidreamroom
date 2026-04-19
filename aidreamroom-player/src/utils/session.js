@@ -378,6 +378,23 @@ export function markRoleCreated() {
   clearWarehouseCaches();
 }
 
+export function markRoleReset() {
+  const token = getStoredToken();
+
+  clearRoleCaches();
+  clearSkillCaches();
+  clearItemCaches();
+  clearWarehouseCaches();
+  userDetailCache = createValueCache();
+  userDetailRequest = createRequestState();
+
+  if (!token) {
+    return;
+  }
+
+  applyRoleExists(token, false);
+}
+
 export function getCachedUserInfo() {
   const token = getStoredToken();
 
@@ -622,4 +639,21 @@ export function commitWarehouseProfile(profile) {
 
 export function clearWarehouseProfileCache() {
   clearWarehouseCaches();
+}
+
+export function commitUserInfo(info) {
+  const token = getStoredToken();
+
+  if (!token) {
+    return null;
+  }
+
+  userInfoCache = {
+    checked: true,
+    token,
+    value: info || null,
+  };
+  userInfoRequest = createRequestState();
+
+  return userInfoCache.value;
 }

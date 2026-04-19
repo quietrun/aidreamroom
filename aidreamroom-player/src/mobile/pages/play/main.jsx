@@ -7,6 +7,18 @@ import { usePlaySession } from '../../../hooks/usePlaySession';
 import { LeftChatMessage, LeftImageMessage, RightChatMessage, ImageLightbox } from '../../../components/play/ChatParts';
 import iconSystemModel from '@/icon_system_model.png';
 
+function getLeftSpeakerName(item) {
+  if (item.speaker) {
+    return item.speaker;
+  }
+
+  if (item.character === 'narrator') {
+    return '艾达 AIDR（叙述者）';
+  }
+
+  return '艾达 AIDR';
+}
+
 export function MobilePlayMainPage() {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -55,10 +67,10 @@ export function MobilePlayMainPage() {
           <div ref={mainscroll} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', overflow: 'auto', flex: 1, width: '100%', marginTop: '0.688rem', marginBottom: '5.4rem' }}>
             {messageList.map((item, index) => {
               if (item.character !== 'me' && item.func === 'image') {
-                return <LeftImageMessage key={`${item.character}-${index}`} image={item.message} onShowImage={setShowImage} />;
+                return <LeftImageMessage key={`${item.character}-${index}`} image={item.message} speakerName={getLeftSpeakerName(item)} onShowImage={setShowImage} />;
               }
               if (item.character !== 'me') {
-                return <LeftChatMessage key={`${item.character}-${index}`} message={item.message} mobile />;
+                return <LeftChatMessage key={`${item.character}-${index}`} message={item.message} speakerName={getLeftSpeakerName(item)} mobile />;
               }
               return <RightChatMessage key={`${item.character}-${index}`} message={item.message} characterName={characterName} image={characterInfo?.image} mobile />;
             })}
@@ -86,4 +98,3 @@ export function MobilePlayMainPage() {
     </div>
   );
 }
-

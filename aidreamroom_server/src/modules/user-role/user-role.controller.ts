@@ -201,4 +201,13 @@ export class UserRoleController {
       message: '角色创建后不可修改',
     };
   }
+
+  @Post('reset')
+  @UseGuards(SessionAuthGuard)
+  async reset(@CurrentUserId() userId: string) {
+    await this.userRoleService.reset(userId);
+    return {
+      result: 0,
+    };
+  }
 }

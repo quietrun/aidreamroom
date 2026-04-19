@@ -29,7 +29,37 @@ function buildBoardList(snapshot) {
     return [[], []];
   }
 
-  return [snapshot.inventoryLabels || [], snapshot.objectiveLabels || []];
+  const loadoutLabels = snapshot.loadoutLabels || [];
+  const loadoutKeys = loadoutLabels.map((item) => normalizeBoardItemLabel(item));
+  const loadoutItems = loadoutLabels.map((label) => ({
+    label,
+    source: label.startsWith('装备:') ? '装备' : '带入',
+  }));
+  const gainedItems = (snapshot.inventoryLabels || [])
+    .filter((label) => {
+      const normalized = normalizeBoardItemLabel(label);
+      return !loadoutKeys.some((key) => key && normalized.includes(key));
+    })
+    .map((label) => ({
+      label,
+      source: '剧情获取',
+    }));
+  const overviewLabels = [
+    snapshot.currentLocationName ? `当前位置：${snapshot.currentLocationName}` : '',
+    snapshot.currentNodeTitle ? `当前剧情：${snapshot.currentNodeTitle}` : '',
+    ...(snapshot.recentEventSummaries || []),
+  ]
+    .map((item) => String(item).trim())
+    .filter(Boolean);
+
+  return [[...loadoutItems, ...gainedItems], overviewLabels];
+}
+
+function normalizeBoardItemLabel(value) {
+  return String(value || '')
+    .replace(/^(装备|技能卡|物品):/, '')
+    .replace(/\sx\d+$/, '')
+    .trim();
 }
 
 function getSocketReadyStateLabel(readyState) {
@@ -50,6 +80,58 @@ function getSocketReadyStateLabel(readyState) {
 function logPlaySocket(level, eventName, payload = {}) {
   const logger = console[level] || console.log;
   logger.call(console, '[play-ws]', eventName, payload);
+}
+
+function shouldHidePlayMessage(item) {
+  if (!item || item.character === 'me') {
+    return false;
+  }
+
+  const text = String(item.message || '').trim();
+  return (
+    text.startsWith('正在 roll 点，本次校验属性为：') ||
+    /^你的点数为 \d+，目标数值为 \d+，结果为：/.test(text) ||
+    /^[a-zA-Z_]+ 检定 (成功|失败)（\d+\/\d+）/.test(text) ||
+    text.startsWith('当前场景：')
+  );
+}
+
+function normalizePlayMessage(item) {
+  if (!item || item.character === 'me') {
+    return item;
+  }
+
+  const text = String(item.message || '').trim();
+  if (item.speaker) {
+    return item;
+  }
+
+  if (item.character === 'narrator' && text.startsWith('旁白：')) {
+    return {
+      ...item,
+      message: text.slice(3).trim(),
+      speaker: '艾达 AIDR（叙述者）',
+    };
+  }
+
+  if (item.character !== 'system' && item.character !== 'narrator') {
+    const separatorIndex = text.indexOf('：');
+    if (separatorIndex > 0) {
+      return {
+        ...item,
+        message: text.slice(separatorIndex + 1).trim(),
+        speaker: text.slice(0, separatorIndex).trim(),
+      };
+    }
+  }
+
+  return item;
+}
+
+function filterVisiblePlayMessages(messages) {
+  return Array.isArray(messages)
+    ? messages.filter((item) => !shouldHidePlayMessage(item)).map(normalizePlayMessage)
+    : [];
 }
 
 export function usePlaySession({ gameId, socketUrl }) {
@@ -111,7 +193,7 @@ export function usePlaySession({ gameId, socketUrl }) {
       setCharacterInfo(parseCharacterInfo(character));
       setPlotItemList([]);
       setBoardList(buildBoardList(runtime?.snapshot));
-      setMessageList(runtime?.messages || []);
+      setMessageList(filterVisiblePlayMessages(runtime?.messages || []));
 
       logPlaySocket('info', 'connecting', {
         gameId,
@@ -140,13 +222,19 @@ export function usePlaySession({ gameId, socketUrl }) {
         });
         switch (response.func) {
           case 'chat': {
+            const chatMessage = {
+              message: response.message,
+              character: response.character,
+              speaker: response.speaker,
+              func: 'chat',
+            };
+            if (shouldHidePlayMessage(chatMessage)) {
+              closeWaiting();
+              break;
+            }
             setMessageList((current) => [
               ...current,
-              {
-                message: response.message,
-                character: response.character,
-                func: 'chat',
-              },
+              normalizePlayMessage(chatMessage),
             ]);
             closeWaiting();
             break;
@@ -157,6 +245,7 @@ export function usePlaySession({ gameId, socketUrl }) {
               {
                 message: response.message,
                 character: response.character,
+                speaker: response.speaker,
                 func: 'image',
               },
             ]);
@@ -164,30 +253,16 @@ export function usePlaySession({ gameId, socketUrl }) {
             break;
           }
           case 'roll': {
-            const data = response.data || {};
-            setMessageList((current) => [
-              ...current,
-              {
-                message: `正在 roll 点，本次校验属性为：${data.type || '未知属性'}`,
-                character: 'system',
-                func: 'chat',
-              },
-              {
-                message: `你的点数为 ${data.rollData}，目标数值为 ${data.targetData}，结果为：${data.rollData <= data.targetData ? '成功' : '失败'}`,
-                character: 'system',
-                func: 'chat',
-              },
-            ]);
             closeWaiting();
             break;
           }
           case 'history': {
             if (Array.isArray(response.messages)) {
-              setMessageList(response.messages);
+              setMessageList(filterVisiblePlayMessages(response.messages));
             } else if (response.url) {
               const responseData = await fetch(response.url);
               const historyMessages = JSON.parse(await responseData.text());
-              setMessageList(historyMessages);
+              setMessageList(filterVisiblePlayMessages(historyMessages));
             }
             break;
           }
@@ -211,11 +286,29 @@ export function usePlaySession({ gameId, socketUrl }) {
               .split(',')
               .map((item) => item.trim())
               .filter(Boolean);
-            setBoardList((current) => [items, current[1] || []]);
+            setBoardList((current) => {
+              if (current[0]?.length) {
+                return current;
+              }
+
+              return [
+                items.map((label) => ({ label, source: '剧情获取' })),
+                current[1] || [],
+              ];
+            });
             break;
           }
           case 'error': {
             message.info(response.message || '连接异常');
+            if (response.refundModuleId !== undefined) {
+              setRemainTime((current) => {
+                if (current === '无限') {
+                  return current;
+                }
+                const next = Number(current) + 1;
+                return Number.isFinite(next) ? next : current;
+              });
+            }
             closeWaiting();
             break;
           }

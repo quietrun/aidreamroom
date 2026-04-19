@@ -50,6 +50,10 @@ type UserRoleAbilityRow = {
   experience: number | null;
 };
 
+type IdRow = {
+  uuid: string;
+};
+
 type SaveUserRolePayload = {
   name: string;
   gender: string;
@@ -108,6 +112,43 @@ export class UserRoleService {
     }
 
     return this.saveRole(userId, payload, current);
+  }
+
+  async reset(userId: string) {
+    const role = await this.findRoleRowByUserId(userId);
+    if (role) {
+      await this.db.execute('delete from user_role_ability_table where role_id = ?', [role.uuid]);
+      await this.db.execute('delete from user_role_table where uuid = ?', [role.uuid]);
+    }
+
+    const warehouses = await this.db.query<IdRow>(
+      'select uuid from user_warehouse_table where user_id = ?',
+      [userId],
+    );
+    if (warehouses.length) {
+      const warehouseClause = this.db.buildInClause(warehouses.map((item) => item.uuid));
+      await this.db.execute(
+        `delete from user_warehouse_entry_table where warehouse_id in (${warehouseClause.sql})`,
+        warehouseClause.params,
+      );
+      await this.db.execute('delete from user_warehouse_table where user_id = ?', [userId]);
+    }
+
+    const games = await this.db.query<IdRow>('select uuid from play_config where creator = ?', [userId]);
+    if (games.length) {
+      const gameClause = this.db.buildInClause(games.map((item) => item.uuid));
+      await this.db.execute(
+        `delete from play_turn_log_table where session_id in (${gameClause.sql})`,
+        gameClause.params,
+      );
+      await this.db.execute(
+        `delete from play_runtime_table where session_id in (${gameClause.sql})`,
+        gameClause.params,
+      );
+      await this.db.execute('delete from play_config where creator = ?', [userId]);
+    }
+
+    return { reset: true };
   }
 
   private async saveRole(

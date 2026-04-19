@@ -4,6 +4,7 @@ import { LoginRoute, ProtectedRoute } from './guards';
 import { LoginPage } from '../pages/loginPage';
 import { MainPage } from '../pages/mainPage';
 import { MePage } from '../pages/mePage';
+import { AccountPage } from '../pages/accountPage';
 import { RoleCreatePage } from '../pages/roleCreatePage';
 import { SkillPage } from '../pages/skillPage';
 import { ItemPage } from '../pages/itemPage';
@@ -18,6 +19,7 @@ import { RouteLoading } from '../components/common/RouteLoading';
 const MobileLoginPage = lazy(() => import('../mobile/pages/loginPage').then((module) => ({ default: module.MobileLoginPage })));
 const MobileMainPage = lazy(() => import('../mobile/pages/mainPage').then((module) => ({ default: module.MobileMainPage })));
 const MobileMePage = lazy(() => import('../mobile/pages/mePage').then((module) => ({ default: module.MobileMePage })));
+const MobileAccountPage = lazy(() => import('../mobile/pages/accountPage').then((module) => ({ default: module.MobileAccountPage })));
 const MobileRoleCreatePage = lazy(() => import('../mobile/pages/roleCreatePage').then((module) => ({ default: module.MobileRoleCreatePage })));
 const MobileSkillPage = lazy(() => import('../mobile/pages/skillPage').then((module) => ({ default: module.MobileSkillPage })));
 const MobileItemPage = lazy(() => import('../mobile/pages/itemPage').then((module) => ({ default: module.MobileItemPage })));
@@ -36,6 +38,7 @@ export function AppRoutes() {
         <Route path="/login" element={<LoginRoute><LoginPage /></LoginRoute>} />
         <Route path="/main" element={<ProtectedRoute requireRole><MainPage /></ProtectedRoute>} />
         <Route path="/mepage" element={<ProtectedRoute><MePage /></ProtectedRoute>} />
+        <Route path="/account" element={<ProtectedRoute><AccountPage /></ProtectedRoute>} />
         <Route path="/skills" element={<ProtectedRoute requireRole><SkillPage /></ProtectedRoute>} />
         <Route path="/items" element={<ProtectedRoute requireRole><ItemPage /></ProtectedRoute>} />
         <Route path="/warehouse" element={<ProtectedRoute requireRole><WarehousePage /></ProtectedRoute>} />
@@ -47,6 +50,7 @@ export function AppRoutes() {
         <Route path="/mobile/login" element={<LoginRoute mobile><MobileLoginPage /></LoginRoute>} />
         <Route path="/mobile/main" element={<ProtectedRoute requireRole><MobileMainPage /></ProtectedRoute>} />
         <Route path="/mobile/mepage" element={<ProtectedRoute><MobileMePage /></ProtectedRoute>} />
+        <Route path="/mobile/account" element={<ProtectedRoute><MobileAccountPage /></ProtectedRoute>} />
         <Route path="/mobile/skills" element={<ProtectedRoute requireRole><MobileSkillPage /></ProtectedRoute>} />
         <Route path="/mobile/items" element={<ProtectedRoute requireRole><MobileItemPage /></ProtectedRoute>} />
         <Route path="/mobile/warehouse" element={<ProtectedRoute requireRole><MobileWarehousePage /></ProtectedRoute>} />

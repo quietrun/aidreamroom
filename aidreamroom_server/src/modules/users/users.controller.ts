@@ -241,8 +241,9 @@ export class UsersController {
   }
 
   @Post('update/info')
-  async updateInfo(@Body() body: UpdateInfoDto) {
-    await this.usersService.updateInfo(body);
+  @UseGuards(SessionAuthGuard)
+  async updateInfo(@CurrentUserId() userId: string, @Body() body: UpdateInfoDto) {
+    await this.usersService.updateInfo(userId, body);
     return { status: 0 };
   }
 
@@ -297,5 +298,4 @@ export class UsersController {
     return { result: 0, code: md5(code) };
   }
 }
-
 

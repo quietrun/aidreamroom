@@ -22,7 +22,7 @@ export function MobileMainPage() {
                 alt="me"
                 src={images.avater}
                 style={{ marginRight: '0.375rem', borderRadius: '1.375rem' }}
-                onClick={() => navigate('/mobile/mepage')}
+                onClick={() => navigate('/mobile/account')}
               />
               <img
                 alt="question"

@@ -46,6 +46,8 @@ class Api {
 
   USER_ROLE_UPDATE = (params) => POST('user-role/update', params, header);
 
+  USER_ROLE_RESET = () => POST('user-role/reset', {}, header);
+
   SKILL_LIST = () => GET('skills/list', null, header);
 
   SKILL_DETAIL = (id) => GET(`skills/detail/${id}`, null, header);

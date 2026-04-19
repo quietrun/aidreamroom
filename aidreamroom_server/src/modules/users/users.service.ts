@@ -266,8 +266,17 @@ export class UsersService {
     });
   }
 
-  updateInfo(payload: Record<string, unknown>) {
-    return this.db.replaceInto('user_info_table', payload);
+  async updateInfo(userId: string, payload: Record<string, unknown>) {
+    const current = await this.queryOrCreateUserInfo(userId);
+    const next = {
+      ...current,
+      user_name: String(payload.user_name ?? current.user_name ?? '').trim() || current.user_name,
+      user_email: String(payload.user_email ?? current.user_email ?? '').trim(),
+      user_phone: String(payload.user_phone ?? current.user_phone ?? '').trim(),
+      user_avater: String(payload.user_avater ?? current.user_avater ?? '').trim(),
+    };
+
+    return this.db.replaceInto('user_info_table', next);
   }
 
   async addFriend(userId: string, targetUserId: string) {

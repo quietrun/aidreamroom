@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
-import { Spin, message } from 'antd';
+import { Modal, Spin, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 
 import '../styles/index.scss';
@@ -14,11 +14,11 @@ import {
 import {
   ensureRoleProfile,
   ensureUserDetail,
-  ensureUserInfo,
   getCachedRoleProfile,
   getCachedUserDetail,
-  getCachedUserInfo,
+  markRoleReset,
 } from '../../utils/session';
+import { API } from '../../utils/API';
 
 const cardStyle = {
   width: '16.8rem',
@@ -30,7 +30,7 @@ const cardStyle = {
   boxSizing: 'border-box',
 };
 
-function ActionButton({ label, onClick }) {
+function ActionButton({ label, onClick, danger = false }) {
   return (
     <div
       onClick={onClick}
@@ -39,7 +39,7 @@ function ActionButton({ label, onClick }) {
         borderRadius: '999px',
         padding: '0.5rem 0.8rem',
         color: '#fff',
-        background: 'rgba(28, 122, 59, 0.85)',
+        background: danger ? 'rgba(142, 38, 32, 0.86)' : 'rgba(28, 122, 59, 0.85)',
         border: '0.044rem solid rgba(255,255,255,0.12)',
         fontSize: '0.62rem',
       }}
@@ -52,10 +52,8 @@ function ActionButton({ label, onClick }) {
 export function MobileMePage() {
   const navigate = useNavigate();
   const cachedRoleResponse = getCachedRoleProfile();
-  const cachedUserInfo = getCachedUserInfo();
   const cachedUserDetail = getCachedUserDetail();
-  const [loading, setLoading] = useState(!(cachedRoleResponse && cachedUserInfo && cachedUserDetail));
-  const [userInfo, setUserInfo] = useState(cachedUserInfo);
+  const [loading, setLoading] = useState(!(cachedRoleResponse && cachedUserDetail));
   const [detail, setDetail] = useState(cachedUserDetail);
   const [role, setRole] = useState(cachedRoleResponse?.role || null);
 
@@ -64,8 +62,7 @@ export function MobileMePage() {
 
     async function init() {
       try {
-        const [nextUserInfo, nextDetail, roleResponse] = await Promise.all([
-          ensureUserInfo(),
+        const [nextDetail, roleResponse] = await Promise.all([
           ensureUserDetail(),
           ensureRoleProfile(),
         ]);
@@ -79,7 +76,6 @@ export function MobileMePage() {
           return;
         }
 
-        setUserInfo(nextUserInfo);
         setDetail(nextDetail);
         setRole(roleResponse.role);
       } catch (error) {
@@ -106,6 +102,28 @@ export function MobileMePage() {
   const attributeTotal = useMemo(() => computeRoleAttributeTotal(role || {}), [role]);
   const counts = {
     play: detail?.play?.length || 0,
+  };
+
+  const resetRole = () => {
+    Modal.confirm({
+      title: '确认重新生成角色？',
+      content: '重新生成角色后原角色的属性，经验值，所有物品和记录会被删除，确认是否重新生成',
+      okText: '确认重新生成',
+      cancelText: '取消',
+      okButtonProps: { danger: true },
+      async onOk() {
+        const result = await API.USER_ROLE_RESET();
+        if (result?.result !== 0) {
+          message.error(result?.message || '角色重置失败');
+          return Promise.reject(new Error(result?.message || '角色重置失败'));
+        }
+
+        markRoleReset();
+        message.success('角色已重置，请重新创建角色');
+        navigate('/mobile/role/create', { replace: true });
+        return undefined;
+      },
+    });
   };
 
   if (loading) {
@@ -138,6 +156,7 @@ export function MobileMePage() {
                 <ActionButton label="技能" onClick={() => navigate('/mobile/skills')} />
                 <ActionButton label="物品" onClick={() => navigate('/mobile/items')} />
                 <ActionButton label="仓库" onClick={() => navigate('/mobile/warehouse')} />
+                <ActionButton label="重生" onClick={resetRole} danger />
               </div>
             </div>
 
@@ -153,11 +172,6 @@ export function MobileMePage() {
               </div>
               <div style={{ marginTop: '0.7rem', color: 'rgba(255,255,255,0.72)', lineHeight: 1.6, fontSize: '0.56rem', textAlign: 'left' }}>
                 {role.appearanceStyle || '暂未填写外观样式'}
-              </div>
-              <div style={{ marginTop: '0.7rem', paddingTop: '0.7rem', borderTop: '0.044rem solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.68)', fontSize: '0.56rem', lineHeight: 1.75, textAlign: 'left' }}>
-                <div>{`用户名：${userInfo?.user_name || '--'}`}</div>
-                <div>{`用户 ID：${userInfo?.user_id || '--'}`}</div>
-                <div>{`邮箱：${userInfo?.user_email || '--'}`}</div>
               </div>
             </div>
 
