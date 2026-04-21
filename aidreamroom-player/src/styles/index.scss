@@ -1079,6 +1079,1052 @@ body,
     }
 }
 
+.dream-play-page {
+    position: fixed;
+    inset: 0;
+    background-position: center center;
+    background-size: cover;
+    color: #f3eee4;
+    overflow: hidden;
+}
+
+.role-dashboard-page {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #f4efe6;
+    background-position: center center;
+    background-size: cover;
+    overflow: hidden;
+}
+
+.role-dashboard-logo {
+    position: absolute;
+    left: 1.2rem;
+    top: 1.1rem;
+    width: 7.7rem;
+    height: auto;
+    opacity: 0.34;
+    pointer-events: none;
+}
+
+.role-dashboard-shell {
+    position: relative;
+    z-index: 1;
+    width: min(96rem, calc(100vw - 2rem));
+    height: min(54rem, calc(100vh - 2rem));
+    margin: 0;
+    display: grid;
+    grid-template-columns: 23.5rem minmax(0, 1fr);
+    gap: 1.2rem;
+}
+
+.role-sidebar,
+.role-main-panel,
+.role-side-card,
+.role-profile-card {
+    border: 1px solid rgba(143, 126, 91, 0.24);
+    background: rgba(17, 17, 14, 0.86);
+    box-shadow: 0 1.2rem 3rem rgba(0, 0, 0, 0.22);
+}
+
+.role-sidebar {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+}
+
+.role-profile-card,
+.role-side-card {
+    border-radius: 1.05rem;
+    padding: 1.15rem;
+}
+
+.role-profile-card {
+    min-height: 12.2rem;
+}
+
+.role-profile-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.role-avatar-wrap {
+    position: relative;
+    width: 5.05rem;
+    height: 5.05rem;
+    flex-shrink: 0;
+}
+
+.role-avatar-wrap img {
+    width: 5.05rem;
+    height: 5.05rem;
+    border-radius: 5.05rem;
+    object-fit: cover;
+    border: 1px solid rgba(214, 192, 93, 0.26);
+}
+
+.role-avatar-wrap i {
+    position: absolute;
+    right: 0.2rem;
+    bottom: 0.26rem;
+    width: 0.72rem;
+    height: 0.72rem;
+    border-radius: 0.72rem;
+    background: #5ac96e;
+    border: 2px solid rgba(17, 17, 14, 0.95);
+}
+
+.role-profile-title {
+    min-width: 0;
+    text-align: left;
+}
+
+.role-profile-title h1 {
+    margin: 0;
+    color: #fff;
+    font-size: 1.35rem;
+    line-height: 1.2;
+}
+
+.role-profile-title p {
+    margin: 0.35rem 0 0.55rem;
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 0.86rem;
+}
+
+.role-profile-title div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+}
+
+.role-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.55rem;
+    padding: 0.22rem 0.7rem;
+    border-radius: 1rem;
+    color: rgba(255, 255, 255, 0.78);
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 0.72rem;
+    line-height: 1.2;
+}
+
+.role-chip.green {
+    color: #bdebbf;
+    background: rgba(50, 117, 56, 0.34);
+    border-color: rgba(98, 178, 103, 0.18);
+}
+
+.role-intro {
+    margin: 1rem 0 0;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.86rem;
+    line-height: 1.8;
+    text-align: left;
+}
+
+.role-side-card h2 {
+    margin: 0 0 0.85rem;
+    color: rgba(255, 255, 255, 0.86);
+    font-size: 1rem;
+    text-align: left;
+}
+
+.role-status-grid,
+.role-adventure-grid {
+    display: grid;
+    gap: 0.8rem;
+}
+
+.role-status-grid {
+    grid-template-columns: 1fr 1fr;
+}
+
+.role-adventure-grid {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+.role-stat-tile {
+    min-height: 4.15rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 0.8rem;
+    border-radius: 0.78rem;
+    background: rgba(255, 255, 255, 0.08);
+    box-sizing: border-box;
+}
+
+.role-stat-tile span {
+    color: rgba(255, 255, 255, 0.48);
+    font-size: 0.72rem;
+}
+
+.role-stat-tile strong {
+    margin-top: 0.34rem;
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 1.35rem;
+    line-height: 1;
+    font-weight: 700;
+}
+
+.role-status-grid .role-stat-tile:first-child::after,
+.role-status-grid .role-stat-tile:nth-child(2)::after {
+    content: "";
+    width: 100%;
+    height: 0.22rem;
+    margin-top: 0.72rem;
+    border-radius: 0.22rem;
+}
+
+.role-status-grid .role-stat-tile:first-child::after {
+    background: #b25d50;
+}
+
+.role-status-grid .role-stat-tile:nth-child(2)::after {
+    background: #6b55d4;
+}
+
+.role-action-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.58rem;
+}
+
+.role-action-button {
+    min-width: 4.65rem;
+    height: 2.1rem;
+    padding: 0 1rem;
+    border: none;
+    border-radius: 1.2rem;
+    background: rgba(43, 129, 60, 0.92);
+    color: #fff;
+    font-size: 0.82rem;
+    cursor: pointer;
+}
+
+.role-action-button.danger {
+    background: rgba(143, 48, 41, 0.9);
+}
+
+.role-adventure-card {
+    flex: 1;
+    min-height: 0;
+}
+
+.role-main-panel {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 1.05rem;
+}
+
+.role-main-header {
+    height: 4.3rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0 1.55rem;
+    border-bottom: 1px solid rgba(143, 126, 91, 0.14);
+    flex-shrink: 0;
+}
+
+.role-tab-list,
+.role-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.role-tab-list button,
+.role-header-actions button {
+    border: none;
+    outline: none;
+    color: rgba(255, 255, 255, 0.52);
+    font: inherit;
+    cursor: pointer;
+}
+
+.role-tab-list button {
+    min-width: 5.2rem;
+    height: 2.2rem;
+    padding: 0 1rem;
+    border-radius: 0.75rem;
+    background: transparent;
+    font-size: 0.82rem;
+}
+
+.role-tab-list button.active {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.16);
+}
+
+.role-header-actions button {
+    height: 2.05rem;
+    padding: 0 0.85rem;
+    border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.08);
+    font-size: 0.76rem;
+}
+
+.role-header-actions button.back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.42rem;
+    background: transparent;
+}
+
+.role-header-actions span {
+    width: 1.5rem;
+    height: 1.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 1.5rem;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+    font-size: 1.25rem;
+    line-height: 1;
+}
+
+.role-main-content {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 1.35rem 1.55rem 2rem;
+}
+
+.role-main-content h2 {
+    margin: 0 0 1.15rem;
+    color: rgba(255, 255, 255, 0.88);
+    font-size: 1rem;
+    text-align: left;
+}
+
+.role-main-content h2.role-section-subtitle {
+    margin-top: 1.4rem;
+}
+
+.role-attribute-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.9rem;
+}
+
+.role-attribute-card,
+.role-ability-card,
+.role-record-group {
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 0.9rem;
+    background: rgba(255, 255, 255, 0.07);
+}
+
+.role-attribute-card {
+    min-height: 7.05rem;
+    padding: 1rem;
+    box-sizing: border-box;
+}
+
+.role-card-title-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.role-card-title-row span {
+    color: rgba(255, 255, 255, 0.84);
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.role-card-title-row strong {
+    color: rgba(255, 255, 255, 0.94);
+    font-size: 1.45rem;
+    line-height: 1;
+}
+
+.role-card-title-row em {
+    margin-left: 0.2rem;
+    color: rgba(255, 255, 255, 0.28);
+    font-size: 0.64rem;
+    font-style: normal;
+    font-weight: 400;
+}
+
+.role-progress-track {
+    height: 0.26rem;
+    margin-top: 0.72rem;
+    border-radius: 0.3rem;
+    background: rgba(255, 255, 255, 0.12);
+    overflow: hidden;
+}
+
+.role-progress-track i {
+    display: block;
+    height: 100%;
+    border-radius: 0.3rem;
+}
+
+.role-attribute-card p {
+    margin: 0.75rem 0 0;
+    color: rgba(255, 255, 255, 0.48);
+    font-size: 0.74rem;
+    line-height: 1.55;
+    text-align: left;
+}
+
+.role-derived-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.85rem;
+}
+
+.role-ability-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.9rem;
+}
+
+.role-ability-card {
+    min-height: 6rem;
+    padding: 0.95rem 1rem;
+    box-sizing: border-box;
+}
+
+.role-ability-card .role-card-title-row strong {
+    color: #dcc56f;
+    font-size: 0.78rem;
+}
+
+.role-ability-segments {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 0.34rem;
+    margin-top: 0.8rem;
+}
+
+.role-ability-segments i {
+    height: 0.28rem;
+    border-radius: 0.28rem;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.role-ability-segments i.active {
+    background: #66bd73;
+}
+
+.role-ability-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 0.78rem;
+}
+
+.role-ability-footer p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.48);
+    font-size: 0.75rem;
+    text-align: left;
+}
+
+.role-ability-footer span {
+    color: rgba(255, 255, 255, 0.46);
+    font-size: 0.72rem;
+    white-space: nowrap;
+}
+
+.role-record-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.role-record-group {
+    min-height: 5.8rem;
+    padding: 1.1rem 1.35rem;
+}
+
+.role-record-group h3 {
+    margin: 0 0 0.85rem;
+    color: rgba(255, 255, 255, 0.76);
+    font-size: 0.92rem;
+    text-align: left;
+}
+
+.role-record-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+}
+
+.role-empty-text {
+    color: rgba(255, 255, 255, 0.42);
+    font-size: 0.82rem;
+    text-align: left;
+}
+
+@media (max-width: 1220px) {
+    .role-dashboard-shell {
+        grid-template-columns: 21rem minmax(0, 1fr);
+    }
+
+    .role-attribute-grid,
+    .role-derived-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+.dream-play-shell {
+    width: min(92rem, calc((100vw - 1.6rem) * 0.8));
+    height: calc((100vh - 1.6rem) * 0.8);
+    margin: calc((100vh - ((100vh - 1.6rem) * 0.8)) / 2) auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(25rem, 31.5rem);
+    gap: 1.25rem;
+}
+
+.dream-chat-panel,
+.dream-side-panel {
+    min-height: 0;
+}
+
+.dream-chat-panel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid rgba(143, 126, 91, 0.32);
+    border-radius: 1.4rem;
+    background: rgba(21, 20, 17, 0.88);
+    box-shadow: 0 1.2rem 3rem rgba(0, 0, 0, 0.28);
+}
+
+.dream-play-header {
+    height: 4.45rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0 1.35rem;
+    border-bottom: 1px solid rgba(143, 126, 91, 0.14);
+    flex-shrink: 0;
+}
+
+.dream-title-group,
+.dream-title-actions,
+.dream-model-pill {
+    display: flex;
+    align-items: center;
+}
+
+.dream-title-group {
+    gap: 0.8rem;
+}
+
+.dream-title-actions {
+    gap: 0.7rem;
+}
+
+.dream-play-title {
+    color: #fff8ed;
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+.dream-icon-button,
+.dream-voice-button,
+.dream-send-button,
+.dream-tab-group button,
+.dream-backpack-actions button,
+.dream-pending-action button {
+    border: none;
+    outline: none;
+    font: inherit;
+}
+
+.dream-icon-button {
+    width: 2.35rem;
+    height: 2.35rem;
+    border-radius: 2.35rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.08);
+    cursor: pointer;
+}
+
+.dream-icon-button img {
+    width: 1.15rem;
+    height: 1.15rem;
+    object-fit: contain;
+    margin: 0;
+}
+
+.dream-model-pill {
+    height: 2rem;
+    gap: 0.45rem;
+    padding: 0 0.75rem;
+    border-radius: 2rem;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(245, 238, 225, 0.76);
+    font-size: 0.78rem;
+    white-space: nowrap;
+}
+
+.dream-model-pill::before {
+    content: "";
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 0.45rem;
+    background: #68c777;
+    box-shadow: 0 0 0.55rem rgba(104, 199, 119, 0.72);
+}
+
+.dream-model-pill img {
+    display: none;
+}
+
+.dream-message-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 1.2rem 1.3rem 7rem;
+    scroll-behavior: smooth;
+}
+
+.dream-message {
+    width: 100%;
+    display: flex;
+    gap: 0.7rem;
+    margin: 0.55rem 0 1.2rem;
+}
+
+.dream-message-right {
+    justify-content: flex-end;
+}
+
+.dream-message-avatar {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 2.25rem;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    box-shadow: 0 0.45rem 1rem rgba(0, 0, 0, 0.22);
+}
+
+.dream-message-body {
+    max-width: min(43rem, 78%);
+    display: flex;
+    flex-direction: column;
+    gap: 0.32rem;
+}
+
+.dream-message-left .dream-message-body {
+    align-items: flex-start;
+}
+
+.dream-message-right .dream-message-body {
+    align-items: flex-end;
+}
+
+.dream-message-speaker {
+    color: rgba(232, 208, 120, 0.86);
+    font-size: 0.78rem;
+    line-height: 1.2;
+}
+
+.dream-message-right .dream-message-speaker {
+    color: rgba(223, 200, 117, 0.78);
+}
+
+.dream-message-bubble {
+    border-radius: 0.9rem;
+    padding: 0.92rem 1.15rem;
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 0.88rem;
+    line-height: 1.75;
+    text-align: left;
+    word-break: break-word;
+    white-space: pre-wrap;
+}
+
+.dream-message-left .dream-message-bubble {
+    background: rgba(24, 69, 39, 0.88);
+    border: 1px solid rgba(68, 148, 79, 0.26);
+}
+
+.dream-message-right .dream-message-bubble {
+    background: rgba(92, 77, 30, 0.9);
+    border: 1px solid rgba(174, 143, 55, 0.35);
+}
+
+.dream-message-image-bubble {
+    padding: 0.55rem;
+}
+
+.dream-message-image-bubble img {
+    display: block;
+    max-width: 23rem;
+    max-height: 18rem;
+    border-radius: 0.7rem;
+    cursor: pointer;
+}
+
+.dream-waiting {
+    width: 3.4rem;
+    margin-left: 3rem;
+    opacity: 0.86;
+}
+
+.dream-input-wrap {
+    position: absolute;
+    left: 1.15rem;
+    right: 1.15rem;
+    bottom: 1rem;
+}
+
+.dream-pending-action {
+    width: fit-content;
+    max-width: 70%;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0 0 0.55rem 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.8rem;
+    background: rgba(33, 86, 47, 0.9);
+    border: 1px solid rgba(96, 190, 113, 0.24);
+    color: rgba(255, 255, 255, 0.86);
+    font-size: 0.76rem;
+}
+
+.dream-pending-action button {
+    color: rgba(255, 255, 255, 0.72);
+    background: transparent;
+    cursor: pointer;
+}
+
+.dream-input-bar {
+    min-height: 4.7rem;
+    display: grid;
+    grid-template-columns: 2.45rem 1fr 5.5rem;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.85rem;
+    border-radius: 1.2rem;
+    background: rgba(41, 39, 35, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dream-voice-button,
+.dream-send-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.dream-voice-button {
+    width: 2.45rem;
+    height: 2.45rem;
+    border-radius: 2.45rem;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.dream-voice-button img,
+.dream-send-button img {
+    width: 1.2rem;
+    height: 1.2rem;
+    object-fit: contain;
+}
+
+.dream-input {
+    min-height: 2.8rem !important;
+    max-height: 7rem;
+    padding: 0.72rem 0.4rem !important;
+    color: rgba(255, 255, 255, 0.92) !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    resize: none !important;
+    font-size: 0.9rem !important;
+    line-height: 1.55 !important;
+}
+
+.dream-input::placeholder {
+    color: rgba(255, 255, 255, 0.36) !important;
+}
+
+.dream-send-button {
+    height: 2.65rem;
+    gap: 0.4rem;
+    border-radius: 0.85rem;
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 0.86rem;
+}
+
+.dream-side-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.dream-character-card,
+.dream-board-card {
+    border: 1px solid rgba(143, 126, 91, 0.28);
+    border-radius: 1.35rem;
+    background: rgba(21, 20, 17, 0.88);
+    box-shadow: 0 1.2rem 3rem rgba(0, 0, 0, 0.2);
+}
+
+.dream-character-card {
+    min-height: 5.2rem;
+    display: grid;
+    grid-template-columns: 3.55rem 1fr auto;
+    align-items: center;
+    gap: 0.9rem;
+    padding: 0.85rem 1.05rem;
+}
+
+.dream-character-avatar {
+    width: 3.2rem;
+    height: 3.2rem;
+    border-radius: 3.2rem;
+    object-fit: cover;
+    border: 1px solid rgba(230, 199, 91, 0.28);
+}
+
+.dream-character-info {
+    min-width: 0;
+    text-align: left;
+}
+
+.dream-character-name {
+    color: #fff;
+    font-size: 1.05rem;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dream-character-meta {
+    color: rgba(232, 224, 211, 0.58);
+    font-size: 0.78rem;
+    margin-top: 0.35rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dream-character-stats {
+    display: flex;
+    gap: 0.45rem;
+    flex-shrink: 0;
+}
+
+.dream-character-stats span {
+    min-width: 3rem;
+    padding: 0.42rem 0.55rem;
+    border-radius: 0.9rem;
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.72rem;
+    text-align: center;
+}
+
+.dream-board-card {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+}
+
+.dream-backpack-card {
+    flex: 1.25 1 0;
+}
+
+.dream-overview-card {
+    flex: 0.95 1 0;
+}
+
+.dream-board-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-shrink: 0;
+    color: #fff;
+    font-size: 0.98rem;
+    font-weight: 700;
+    text-align: left;
+}
+
+.dream-tab-group {
+    display: flex;
+    align-items: center;
+    gap: 0.18rem;
+    padding: 0.14rem;
+    border-radius: 0.85rem;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.dream-tab-group button {
+    height: 1.55rem;
+    padding: 0 0.62rem;
+    border-radius: 0.7rem;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.48);
+    font-size: 0.72rem;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.dream-tab-group button.active {
+    background: rgba(255, 255, 255, 0.16);
+    color: #fff;
+}
+
+.dream-backpack-list,
+.dream-overview-list {
+    min-height: 0;
+    overflow-y: auto;
+    margin-top: 0.9rem;
+    padding-right: 0.15rem;
+}
+
+.dream-backpack-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.dream-backpack-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.7rem;
+    min-height: 4.25rem;
+    padding: 0.8rem 0.85rem;
+    border-radius: 0.85rem;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.dream-backpack-item.selected {
+    background: rgba(58, 107, 63, 0.2);
+    border-color: rgba(100, 173, 104, 0.32);
+}
+
+.dream-backpack-item-main {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.45rem;
+}
+
+.dream-backpack-item-main span {
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 0.86rem;
+    line-height: 1.4;
+    text-align: left;
+    word-break: break-word;
+}
+
+.dream-backpack-item-main em {
+    font-style: normal;
+    color: rgba(255, 255, 255, 0.48);
+    font-size: 0.66rem;
+    padding: 0.25rem 0.52rem;
+    border-radius: 0.75rem;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.dream-backpack-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.38rem;
+    flex-shrink: 0;
+}
+
+.dream-backpack-actions button {
+    height: 1.65rem;
+    padding: 0 0.55rem;
+    border-radius: 0.75rem;
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.68);
+    font-size: 0.68rem;
+    cursor: pointer;
+}
+
+.dream-overview-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.dream-overview-list div:not(.dream-empty) {
+    display: grid;
+    grid-template-columns: 0.45rem 1fr;
+    align-items: start;
+    gap: 0.6rem;
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 0.84rem;
+    line-height: 1.65;
+    text-align: left;
+}
+
+.dream-overview-list div.active {
+    color: rgba(255, 255, 255, 0.88);
+}
+
+.dream-overview-list i {
+    width: 0.38rem;
+    height: 0.38rem;
+    margin-top: 0.55rem;
+    border-radius: 0.38rem;
+    background: rgba(255, 255, 255, 0.28);
+}
+
+.dream-overview-list .active i {
+    background: #6ad57b;
+    box-shadow: 0 0 0.6rem rgba(106, 213, 123, 0.74);
+}
+
+.dream-empty {
+    color: rgba(255, 255, 255, 0.42);
+    font-size: 0.82rem;
+    text-align: left;
+    padding: 0.6rem 0;
+}
+
+@media (max-width: 1180px) {
+    .dream-play-shell {
+        grid-template-columns: minmax(0, 1fr) 26rem;
+    }
+}
+
 .normal-row {
     display: flex;
     flex-direction: row;

@@ -11,6 +11,27 @@ import { ensureWarehouseProfile } from '../../utils/session';
 
 const MAX_LOADOUT_SELECTION = 10;
 
+const warehouseCategoryOptions = [
+  {
+    key: 'weapon',
+    label: '武器',
+    activeBackground: 'rgba(140, 59, 32, 0.28)',
+    activeBorder: 'rgba(214, 111, 73, 0.52)',
+  },
+  {
+    key: 'consumable',
+    label: '消耗品',
+    activeBackground: 'rgba(53, 65, 92, 0.28)',
+    activeBorder: 'rgba(122, 145, 196, 0.48)',
+  },
+  {
+    key: 'skill',
+    label: '技能',
+    activeBackground: 'rgba(93, 79, 168, 0.28)',
+    activeBorder: 'rgba(155, 135, 226, 0.52)',
+  },
+];
+
 const shellStyle = {
   backgroundColor: 'rgba(20, 24, 28, 0.82)',
   backgroundImage: 'none',
@@ -228,6 +249,64 @@ function SelectionChip({ label, accent = 'rgba(255,255,255,0.08)' }) {
   return <div style={{ ...chipStyle, background: accent }}>{label}</div>;
 }
 
+function getWarehouseCategoryKey(entry) {
+  if (entry.entryType === 'skill_card') {
+    return 'skill';
+  }
+
+  return entry.item?.itemType || 'other';
+}
+
+function CategoryTabs({ options, value, counts, onChange }) {
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))`,
+        gap: '0.5rem',
+        marginBottom: '0.85rem',
+      }}
+    >
+      {options.map((option) => {
+        const active = option.key === value;
+
+        return (
+          <button
+            key={option.key}
+            type="button"
+            onClick={() => onChange(option.key)}
+            style={{
+              height: '3.28rem',
+              borderRadius: '1.72rem',
+              border: active
+                ? `1px solid ${option.activeBorder}`
+                : '1px solid rgba(255,255,255,0.1)',
+              background: active
+                ? option.activeBackground
+                : 'rgba(255,255,255,0.045)',
+              color: '#fff',
+              fontSize: '0.7rem',
+              fontWeight: active ? 600 : 400,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.35rem',
+              whiteSpace: 'nowrap',
+              boxShadow: active ? 'inset 0 0 0 1px rgba(255,255,255,0.035)' : 'none',
+            }}
+          >
+            <span style={{ fontSize: '1.2rem' }}>{option.label}</span>
+            <span style={{ color: 'rgba(255,255,255,0.62)', fontVariantNumeric: 'tabular-nums', fontSize: '1.2rem' }}>
+              {counts[option.key] || 0}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function SelectionCard({
   title,
   subtitle,
@@ -324,6 +403,7 @@ export function PlaySelectPage() {
   const [showHelp, setShowHelp] = useState(
     firstLogin && helpDialogConfig.help_play_change_character.flag,
   );
+  const [warehouseCategory, setWarehouseCategory] = useState('weapon');
   const [selectedLoadoutKeys, setSelectedLoadoutKeys] = useState([]);
   const [selectedEquipmentIds, setSelectedEquipmentIds] = useState([]);
 
@@ -413,6 +493,28 @@ export function PlaySelectPage() {
           !equippedEntries.some((equippedEntry) => equippedEntry.uuid === entry.uuid),
       ),
     [warehouseProfile, equippedEntries],
+  );
+
+  const warehouseCategoryCounts = useMemo(
+    () =>
+      warehouseEntries.reduce(
+        (counts, entry) => {
+          const categoryKey = getWarehouseCategoryKey(entry);
+
+          if (Object.prototype.hasOwnProperty.call(counts, categoryKey)) {
+            counts[categoryKey] += 1;
+          }
+
+          return counts;
+        },
+        { weapon: 0, consumable: 0, skill: 0 },
+      ),
+    [warehouseEntries],
+  );
+
+  const filteredWarehouseEntries = useMemo(
+    () => warehouseEntries.filter((entry) => getWarehouseCategoryKey(entry) === warehouseCategory),
+    [warehouseCategory, warehouseEntries],
   );
 
   const selectionLookup = useMemo(() => {
@@ -821,19 +923,47 @@ export function PlaySelectPage() {
               </div>
             </div>
 
-            <div style={{ minHeight: 0, overflowY: 'auto', paddingRight: '0.2rem' }}>
-              <div style={{ ...panelStyle, padding: '1.1rem', marginBottom: '1rem' }}>
-                <SectionTitle
-                  title="仓库内容"
-                  extra={
-                    <div style={{ color: 'rgba(255,255,255,0.56)', fontSize: '0.76rem' }}>
-                      最多选择 10 项
-                    </div>
-                  }
-                />
+            <div style={{ minHeight: 0 }}>
+              <div
+                style={{
+                  ...panelStyle,
+                  padding: '1.1rem',
+                  height: '100%',
+                  boxSizing: 'border-box',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  minHeight: 0,
+                }}
+              >
+                <div style={{ flexShrink: 0 }}>
+                  <SectionTitle
+                    title="仓库内容"
+                    extra={
+                      <div style={{ color: 'rgba(255,255,255,0.56)', fontSize: '0.76rem' }}>
+                        最多选择 10 项
+                      </div>
+                    }
+                  />
+                  <CategoryTabs
+                    options={warehouseCategoryOptions}
+                    value={warehouseCategory}
+                    counts={warehouseCategoryCounts}
+                    onChange={setWarehouseCategory}
+                  />
+                </div>
+
                 {warehouseEntries.length ? (
-                  <div style={{ display: 'grid', gap: '0.8rem' }}>
-                    {warehouseEntries.map((entry) => {
+                  <div
+                    style={{
+                      display: 'grid',
+                      gap: '0.8rem',
+                      flex: 1,
+                      overflowY: 'auto',
+                      minHeight: 0,
+                      paddingRight: '0.2rem',
+                    }}
+                  >
+                    {filteredWarehouseEntries.map((entry) => {
                       const key = buildWarehouseSelectionKey(entry);
                       const selected = selectedLoadoutKeys.includes(key);
                       const disabled =
@@ -875,6 +1005,17 @@ export function PlaySelectPage() {
                         />
                       );
                     })}
+                    {!filteredWarehouseEntries.length ? (
+                      <div
+                        style={{
+                          color: 'rgba(255,255,255,0.72)',
+                          fontSize: '0.82rem',
+                          textAlign: 'left',
+                        }}
+                      >
+                        当前分类暂无可配置内容。
+                      </div>
+                    ) : null}
                   </div>
                 ) : (
                   <div

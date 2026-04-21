@@ -20,46 +20,93 @@ import {
 } from '../utils/session';
 import { API } from '../utils/API';
 
-const panelStyle = {
-  background: 'rgba(0, 0, 0, 0.28)',
-  border: '1px solid rgba(255,255,255,0.08)',
-  borderRadius: '1rem',
-  padding: '1rem',
-  color: '#fff',
-};
+const tabs = [
+  { key: 'attributes', label: '九维属性' },
+  { key: 'abilities', label: '能力树' },
+  { key: 'records', label: '角色记录' },
+];
+
+const attributeColors = [
+  '#cf7759',
+  '#c69a49',
+  '#c2bf58',
+  '#65bd77',
+  '#a66bd5',
+  '#6192e4',
+  '#8a6ad9',
+  '#67c1c8',
+  '#d5c865',
+];
 
 function ActionButton({ label, onClick, danger = false }) {
   return (
-    <div
-      onClick={onClick}
-      style={{
-        cursor: 'pointer',
-        borderRadius: '999px',
-        padding: '0.65rem 1.2rem',
-        color: '#fff',
-        background: danger ? 'rgba(142, 38, 32, 0.86)' : 'rgba(28, 122, 59, 0.85)',
-        border: '1px solid rgba(255,255,255,0.12)',
-        fontSize: '0.9rem',
-      }}
-    >
+    <button className={`role-action-button ${danger ? 'danger' : ''}`} type="button" onClick={onClick}>
       {label}
+    </button>
+  );
+}
+
+function StatTile({ label, value }) {
+  return (
+    <div className="role-stat-tile">
+      <span>{label}</span>
+      <strong>{value}</strong>
     </div>
   );
 }
 
 function EmptyTag({ text }) {
+  return <div className="role-empty-text">{text}</div>;
+}
+
+function Chip({ children, tone = 'default' }) {
+  return <span className={`role-chip ${tone}`}>{children}</span>;
+}
+
+function AttributeCard({ item, value, color }) {
+  const percent = Math.min(100, Math.max(0, (Number(value || 0) / 99) * 100));
+
   return (
-    <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.82rem', textAlign: 'left' }}>
-      {text}
+    <div className="role-attribute-card">
+      <div className="role-card-title-row">
+        <span>{item.label}</span>
+        <strong>{value}<em>/99</em></strong>
+      </div>
+      <div className="role-progress-track">
+        <i style={{ width: `${percent}%`, background: color }} />
+      </div>
+      <p>{item.description}</p>
     </div>
   );
 }
 
-function renderStat(label, value) {
+function AbilityCard({ item, current }) {
+  const level = Math.min(10, Math.max(0, Number(current.level || 0)));
+
   return (
-    <div key={label} style={{ width: '48%', padding: '0.75rem', borderRadius: '0.8rem', background: 'rgba(255,255,255,0.06)', marginBottom: '0.6rem' }}>
-      <div style={{ color: 'rgba(255,255,255,0.58)', fontSize: '0.72rem', textAlign: 'left' }}>{label}</div>
-      <div style={{ color: '#fff', fontSize: '1rem', textAlign: 'left', marginTop: '0.3rem' }}>{value}</div>
+    <div className="role-ability-card">
+      <div className="role-card-title-row">
+        <span>{item.label}</span>
+        <strong>{`Lv.${level}`}</strong>
+      </div>
+      <div className="role-ability-segments">
+        {Array.from({ length: 10 }).map((_, index) => (
+          <i key={`${item.key}-${index}`} className={index < level ? 'active' : ''} />
+        ))}
+      </div>
+      <div className="role-ability-footer">
+        <p>{item.description}</p>
+        <span>{`经验 ${current.experience || 0}`}</span>
+      </div>
+    </div>
+  );
+}
+
+function RecordGroup({ title, children }) {
+  return (
+    <div className="role-record-group">
+      <h3>{title}</h3>
+      <div className="role-record-chip-list">{children}</div>
     </div>
   );
 }
@@ -71,6 +118,8 @@ export function MePage() {
   const [loading, setLoading] = useState(!(cachedRoleResponse && cachedUserDetail));
   const [detail, setDetail] = useState(cachedUserDetail);
   const [role, setRole] = useState(cachedRoleResponse?.role || null);
+  const [activeTab, setActiveTab] = useState('attributes');
+  const [showIntro, setShowIntro] = useState(true);
 
   useEffect(() => {
     let mounted = true;
@@ -117,7 +166,22 @@ export function MePage() {
   const attributeTotal = useMemo(() => computeRoleAttributeTotal(role || {}), [role]);
   const counts = {
     play: detail?.play?.length || 0,
+    worlds: role?.worlds?.length || 0,
+    items: role?.items?.length || 0,
   };
+
+  const derivedCards = [
+    ['生命上限', derivedStats.maxHp],
+    ['魔法上限', derivedStats.maxMp],
+    ['负重', derivedStats.carryCapacity],
+    ['推举极限', derivedStats.pushLimit],
+    ['伤害加值', derivedStats.damageBonus],
+    ['移动速率', derivedStats.moveRate],
+    ['射击加成', `+${derivedStats.shootBonus}`],
+    ['社交加成', `+${derivedStats.socialBonus}`],
+    ['学习加成', `+${derivedStats.learningBonus}`],
+    ['幸运加成', `+${derivedStats.critBonus}`],
+  ];
 
   const resetRole = () => {
     Modal.confirm({
@@ -158,155 +222,137 @@ export function MePage() {
   }
 
   return (
-    <div className="main-container" style={{ background: `url(${images.background5})`, backgroundPosition: 'center center', backgroundSize: 'cover' }}>
-      <img alt="logo" className="login-logo" src={images.logo} />
-      <div
-        className="mainpage-container"
-        style={{
-          width: '78rem',
-          height: '45rem',
-          backgroundImage: 'none',
-          backgroundColor: 'rgba(35, 38, 40, 0.92)',
-          padding: '1.5rem 1.8rem',
-        }}
-      >
-        <div className="normal-row" style={{ marginBottom: '1rem' }}>
-          <div className="row">
-            <img alt="back" src={images.icon_back} onClick={() => navigate('/main')} title="返回主页" />
-            <span style={{ fontSize: '1.35rem' }}>{'我的角色'}</span>
-          </div>
-          <div style={{ display: 'flex', gap: '0.8rem' }}>
-            <ActionButton label="技能库" onClick={() => navigate('/skills')} />
-            <ActionButton label="物品库" onClick={() => navigate('/items')} />
-            <ActionButton label="仓库" onClick={() => navigate('/warehouse')} />
-            <ActionButton label="重新生成角色" onClick={resetRole} danger />
-            <ActionButton label="返回主页" onClick={() => navigate('/main')} />
-          </div>
-        </div>
+    <div className="role-dashboard-page" style={{ backgroundImage: `url(${images.background5})` }}>
+      <img alt="logo" className="role-dashboard-logo" src={images.logo} />
 
-        <div style={{ display: 'flex', width: '100%', flex: 1, gap: '1rem', overflow: 'hidden' }}>
-          <div style={{ width: '22rem', overflowY: 'auto', paddingRight: '0.5rem' }}>
-            <div style={panelStyle}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <img alt="avatar" src={images.avater} style={{ width: '4.5rem', height: '4.5rem', borderRadius: '4.5rem' }} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ color: '#fff', fontSize: '1.2rem', textAlign: 'left' }}>{role.name}</div>
-                  <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.82rem', textAlign: 'left', marginTop: '0.3rem' }}>
-                    {`${getDisplayGender(role.gender)} / ${role.age}岁`}
-                  </div>
-                  <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.82rem', textAlign: 'left', marginTop: '0.2rem' }}>
-                    {`总经验 ${role.experience}`}
-                  </div>
-                  <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.82rem', textAlign: 'left', marginTop: '0.2rem' }}>
-                    {`九维总值 ${attributeTotal}`}
-                  </div>
-                </div>
+      <div className="role-dashboard-shell">
+        <aside className="role-sidebar">
+          <section className="role-profile-card">
+            <div className="role-profile-head">
+              <div className="role-avatar-wrap">
+                <img alt="avatar" src={images.avater} />
+                <i />
               </div>
-
-              <div style={{ marginTop: '1rem', color: 'rgba(255,255,255,0.72)', lineHeight: 1.7, fontSize: '0.82rem', textAlign: 'left' }}>
-                {role.appearanceStyle || '暂未填写外观样式'}
-              </div>
-            </div>
-
-            <div style={{ ...panelStyle, marginTop: '1rem' }}>
-              <div style={{ color: '#fff', fontSize: '0.95rem', textAlign: 'left', marginBottom: '0.8rem' }}>{'派生数值'}</div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-                {renderStat('九维总值', attributeTotal)}
-                {renderStat('生命上限', derivedStats.maxHp)}
-                {renderStat('魔法上限', derivedStats.maxMp)}
-                {renderStat('负重', derivedStats.carryCapacity)}
-                {renderStat('推举极限', derivedStats.pushLimit)}
-                {renderStat('伤害加值', derivedStats.damageBonus)}
-                {renderStat('移动速率', derivedStats.moveRate)}
-                {renderStat('射击加成', `+${derivedStats.shootBonus}`)}
-                {renderStat('社交加成', `+${derivedStats.socialBonus}`)}
-                {renderStat('学习加成', `+${derivedStats.learningBonus}`)}
-                {renderStat('幸运加成', `+${derivedStats.critBonus}`)}
-              </div>
-            </div>
-
-            <div style={{ ...panelStyle, marginTop: '1rem' }}>
-              <div style={{ color: '#fff', fontSize: '0.95rem', textAlign: 'left', marginBottom: '0.8rem' }}>{'冒险统计'}</div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-                {renderStat('剧本', counts.play)}
-              </div>
-            </div>
-          </div>
-
-          <div style={{ flex: 1, overflowY: 'auto', paddingRight: '0.5rem' }}>
-            <div style={panelStyle}>
-              <div style={{ color: '#fff', fontSize: '1rem', textAlign: 'left', marginBottom: '0.9rem' }}>{`九维属性 · ${attributeTotal}`}</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.8rem' }}>
-                {roleAttributeDefinitions.map((item) => (
-                  <div key={item.key} style={{ width: 'calc(33.33% - 0.54rem)', minWidth: '12rem', borderRadius: '1rem', background: 'rgba(255,255,255,0.05)', padding: '0.9rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                      <span style={{ color: '#fff', fontSize: '1rem' }}>{item.label}</span>
-                      <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.72rem' }}>{'/99'}</span>
-                    </div>
-                    <div style={{ color: '#fff', fontSize: '1.5rem', textAlign: 'left', marginTop: '0.65rem' }}>{role.attributes?.[item.key] ?? 0}</div>
-                    <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.74rem', lineHeight: 1.65, textAlign: 'left', marginTop: '0.55rem' }}>{item.description}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ ...panelStyle, marginTop: '1rem' }}>
-              <div style={{ color: '#fff', fontSize: '1rem', textAlign: 'left', marginBottom: '0.9rem' }}>{'能力树'}</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.8rem' }}>
-                {roleAbilityDefinitions.map((item) => {
-                  const current = abilityMap.get(item.key) || { level: 0, experience: 0 };
-                  return (
-                    <div key={item.key} style={{ width: 'calc(50% - 0.4rem)', minWidth: '18rem', borderRadius: '1rem', background: 'rgba(255,255,255,0.05)', padding: '1rem' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ color: '#fff', fontSize: '1rem' }}>{item.label}</span>
-                        <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.72rem' }}>{`等级 ${current.level} / 10`}</span>
-                      </div>
-                      <div style={{ color: 'rgba(255,255,255,0.72)', fontSize: '0.78rem', lineHeight: 1.6, textAlign: 'left', marginTop: '0.5rem' }}>{item.description}</div>
-                      <div style={{ marginTop: '0.8rem', display: 'flex', justifyContent: 'space-between' }}>
-                        <div style={{ width: '48%', padding: '0.75rem', borderRadius: '0.8rem', background: 'rgba(255,255,255,0.04)' }}>
-                          <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.72rem', textAlign: 'left' }}>{'等级'}</div>
-                          <div style={{ color: '#fff', fontSize: '1rem', textAlign: 'left', marginTop: '0.3rem' }}>{current.level}</div>
-                        </div>
-                        <div style={{ width: '48%', padding: '0.75rem', borderRadius: '0.8rem', background: 'rgba(255,255,255,0.04)' }}>
-                          <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.72rem', textAlign: 'left' }}>{'经验'}</div>
-                          <div style={{ color: '#fff', fontSize: '1rem', textAlign: 'left', marginTop: '0.3rem' }}>{current.experience}</div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div style={{ ...panelStyle, marginTop: '1rem' }}>
-              <div style={{ color: '#fff', fontSize: '1rem', textAlign: 'left', marginBottom: '0.9rem' }}>{'角色记录'}</div>
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.86rem', textAlign: 'left', marginBottom: '0.7rem' }}>{'获得物品'}</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                    {role.items?.length ? role.items.map((item) => (
-                      <div key={item} style={{ padding: '0.45rem 0.8rem', borderRadius: '999px', background: 'rgba(255,255,255,0.08)', color: '#fff', fontSize: '0.78rem' }}>
-                        {item}
-                      </div>
-                    )) : <EmptyTag text="暂无物品记录" />}
-                  </div>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.86rem', textAlign: 'left', marginBottom: '0.7rem' }}>{'经历世界'}</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                    {role.worlds?.length ? role.worlds.map((item) => (
-                      <div key={item} style={{ padding: '0.45rem 0.8rem', borderRadius: '999px', background: 'rgba(255,255,255,0.08)', color: '#fff', fontSize: '0.78rem' }}>
-                        {item}
-                      </div>
-                    )) : <EmptyTag text="暂无世界记录" />}
-                  </div>
+              <div className="role-profile-title">
+                <h1>{role.name}</h1>
+                <p>{`${getDisplayGender(role.gender)} · ${role.age}岁`}</p>
+                <div>
+                  <Chip>{`经验 ${role.experience}`}</Chip>
+                  <Chip>{`九维总值 ${attributeTotal}`}</Chip>
                 </div>
               </div>
             </div>
+            {showIntro && <p className="role-intro">{role.appearanceStyle || '暂未填写外观样式'}</p>}
+          </section>
+
+          <section className="role-side-card">
+            <h2>战斗状态</h2>
+            <div className="role-status-grid">
+              <StatTile label="生命 HP" value={derivedStats.maxHp} />
+              <StatTile label="魔法 MP" value={derivedStats.maxMp} />
+            </div>
+          </section>
+
+          <section className="role-side-card">
+            <div className="role-action-grid">
+              <ActionButton label="技能库" onClick={() => navigate('/skills')} />
+              <ActionButton label="物品库" onClick={() => navigate('/items')} />
+              <ActionButton label="仓库" onClick={() => navigate('/warehouse')} />
+              <ActionButton label="重新生成角色" onClick={resetRole} danger />
+            </div>
+          </section>
+
+          <section className="role-side-card role-adventure-card">
+            <h2>冒险统计</h2>
+            <div className="role-adventure-grid">
+              <StatTile label="剧本数" value={counts.play} />
+              <StatTile label="经历世界" value={counts.worlds} />
+              <StatTile label="获得物品" value={counts.items} />
+            </div>
+          </section>
+        </aside>
+
+        <main className="role-main-panel">
+          <header className="role-main-header">
+            <nav className="role-tab-list">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  className={activeTab === tab.key ? 'active' : ''}
+                  onClick={() => setActiveTab(tab.key)}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </nav>
+            <div className="role-header-actions">
+              {activeTab === 'attributes' && (
+                <button type="button" onClick={() => setShowIntro((current) => !current)}>
+                  {showIntro ? '收起说明' : '展开说明'}
+                </button>
+              )}
+              <button type="button" className="back" onClick={() => navigate('/main')}>
+                <span>‹</span>
+                返回主页
+              </button>
+            </div>
+          </header>
+
+          <div className="role-main-content">
+            {activeTab === 'attributes' && (
+              <section>
+                <h2>{`九维属性  合计 ${attributeTotal}`}</h2>
+                <div className="role-attribute-grid">
+                  {roleAttributeDefinitions.map((item, index) => (
+                    <AttributeCard
+                      key={item.key}
+                      item={item}
+                      value={role.attributes?.[item.key] ?? 0}
+                      color={attributeColors[index % attributeColors.length]}
+                    />
+                  ))}
+                </div>
+                <h2 className="role-section-subtitle">派生数值</h2>
+                <div className="role-derived-grid">
+                  {derivedCards.map(([label, value]) => (
+                    <StatTile key={label} label={label} value={value} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {activeTab === 'abilities' && (
+              <section>
+                <h2>能力树</h2>
+                <div className="role-ability-grid">
+                  {roleAbilityDefinitions.map((item) => (
+                    <AbilityCard
+                      key={item.key}
+                      item={item}
+                      current={abilityMap.get(item.key) || { level: 0, experience: 0 }}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {activeTab === 'records' && (
+              <section>
+                <h2>角色记录</h2>
+                <div className="role-record-list">
+                  <RecordGroup title="获得物品">
+                    {role.items?.length ? role.items.map((item) => <Chip key={item}>{item}</Chip>) : <EmptyTag text="暂无物品记录" />}
+                  </RecordGroup>
+                  <RecordGroup title="经历世界">
+                    {role.worlds?.length ? role.worlds.map((item) => <Chip key={item} tone="green">{item}</Chip>) : <EmptyTag text="暂无世界记录" />}
+                  </RecordGroup>
+                </div>
+              </section>
+            )}
           </div>
-        </div>
+        </main>
       </div>
-      <img alt="eng-logo" className="login-eng-logo" src={images.eng_logo} />
     </div>
   );
 }

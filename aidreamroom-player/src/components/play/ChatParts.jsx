@@ -1,6 +1,18 @@
 ﻿import { images } from '../../constant';
 
-export function LeftChatMessage({ message, speakerName = '艾达 AIDR', mobile = false }) {
+export function LeftChatMessage({ message, speakerName = '艾达 AIDR', mobile = false, immersive = false }) {
+  if (immersive) {
+    return (
+      <div className="dream-message dream-message-left">
+        <img alt="aidr" className="dream-message-avatar" src={images.ava_aidr} />
+        <div className="dream-message-body">
+          <div className="dream-message-speaker">{speakerName}</div>
+          <div className="dream-message-bubble">{message}</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="leftMessage">
       <div style={{ width: mobile ? '1.375rem' : '2.2rem', display: 'flex', justifyContent: 'center', flexDirection: 'row', alignItems: 'center', flexShrink: 0, background: 'rgb(0,219,42)', borderRadius: mobile ? '1.375rem' : '2.2rem', marginLeft: mobile ? '0.313rem' : '0.3rem' }}>
@@ -14,7 +26,19 @@ export function LeftChatMessage({ message, speakerName = '艾达 AIDR', mobile =
   );
 }
 
-export function RightChatMessage({ message, characterName, image, mobile = false }) {
+export function RightChatMessage({ message, characterName, image, mobile = false, immersive = false }) {
+  if (immersive) {
+    return (
+      <div className="dream-message dream-message-right">
+        <div className="dream-message-body">
+          <div className="dream-message-speaker">{characterName}</div>
+          <div className="dream-message-bubble">{message}</div>
+        </div>
+        <img alt="character" className="dream-message-avatar" src={image || images.icon_character_avater} />
+      </div>
+    );
+  }
+
   return (
     <div className="leftMessage" style={{ alignSelf: 'flex-end', marginRight: mobile ? '0.563rem' : undefined }}>
       <div className="messageBox" style={{ alignSelf: 'flex-end' }}>
@@ -28,7 +52,21 @@ export function RightChatMessage({ message, characterName, image, mobile = false
   );
 }
 
-export function LeftImageMessage({ image, speakerName = '艾达 AIDR', onShowImage }) {
+export function LeftImageMessage({ image, speakerName = '艾达 AIDR', onShowImage, immersive = false }) {
+  if (immersive) {
+    return (
+      <div className="dream-message dream-message-left">
+        <img alt="aidr" className="dream-message-avatar" src={images.ava_aidr} />
+        <div className="dream-message-body">
+          <div className="dream-message-speaker">{speakerName}</div>
+          <div className="dream-message-bubble dream-message-image-bubble">
+            <img alt="story" src={image} onClick={() => onShowImage(image)} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="leftMessage">
       <div style={{ width: '2.2rem', display: 'flex', justifyContent: 'center', flexDirection: 'row', alignItems: 'center', flexShrink: 0, background: 'rgb(0,219,42)', borderRadius: '2.2rem', marginLeft: '0.3rem' }}>
