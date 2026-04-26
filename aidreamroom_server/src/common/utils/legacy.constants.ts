@@ -10,7 +10,7 @@ export const ERROR_CODE = {
 
 export const MODULE_LIST = [
   { moduleId: 0, moduleName: 'gpt-3.5-turbo', showName: '巴蒂' },
-  { moduleId: 1, moduleName: 'gpt-4o', showName: '亨德尔' },
+  { moduleId: 1, moduleName: 'gpt-5.4', showName: '亨德尔' },
   { moduleId: 2, moduleName: 'Claude', showName: '维瓦尔第' },
 ] as const;
 

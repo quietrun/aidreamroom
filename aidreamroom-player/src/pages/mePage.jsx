@@ -258,7 +258,7 @@ export function MePage() {
               <ActionButton label="技能库" onClick={() => navigate('/skills')} />
               <ActionButton label="物品库" onClick={() => navigate('/items')} />
               <ActionButton label="仓库" onClick={() => navigate('/warehouse')} />
-              <ActionButton label="重新生成角色" onClick={resetRole} danger />
+              <ActionButton label="重生" onClick={resetRole} danger />
             </div>
           </section>
 
@@ -287,11 +287,6 @@ export function MePage() {
               ))}
             </nav>
             <div className="role-header-actions">
-              {activeTab === 'attributes' && (
-                <button type="button" onClick={() => setShowIntro((current) => !current)}>
-                  {showIntro ? '收起说明' : '展开说明'}
-                </button>
-              )}
               <button type="button" className="back" onClick={() => navigate('/main')}>
                 <span>‹</span>
                 返回主页

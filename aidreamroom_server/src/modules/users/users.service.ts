@@ -231,10 +231,8 @@ export class UsersService {
     return result;
   }
 
-  async queryMoreDetail(userId: string, sharedOnly: boolean) {
-    const playSql = sharedOnly
-      ? 'select * from play_config where creator = ? and plot_id in (select script_id from play_runtime_table)'
-      : 'select * from play_config where creator = ?';
+  async queryMoreDetail(userId: string, _sharedOnly: boolean) {
+    const playSql = 'select * from play_config where creator = ?';
     const play = await this.db.query(playSql, [userId]);
     return { play };
   }

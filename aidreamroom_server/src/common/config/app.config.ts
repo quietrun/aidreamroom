@@ -20,7 +20,7 @@ export default registerAs('app', () => ({
   databaseUrl: process.env.DATABASE_URL ?? '',
   openaiApiKey: process.env.OPENAI_API_KEY ?? '',
   openaiBaseUrl: process.env.OPENAI_BASE_URL ?? '',
-  autoCharacterModel: process.env.AUTO_CHARACTER_MODEL ?? 'gpt-4o-mini',
+  autoCharacterModel: process.env.AUTO_CHARACTER_MODEL ?? 'gpt-5.4',
   legacyAutoGptEndpoint: process.env.LEGACY_AUTO_GPT_ENDPOINT ?? '',
   bedrockRegion: process.env.BEDROCK_REGION ?? 'us-west-2',
   bedrockAccessKeyId: process.env.BEDROCK_ACCESS_KEY_ID ?? '',

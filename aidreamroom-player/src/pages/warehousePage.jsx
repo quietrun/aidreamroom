@@ -72,7 +72,7 @@ function WarehouseCard({ entry }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.8rem' }}>
           <div>
             <div style={{ color: '#fff', fontSize: '1.08rem', textAlign: 'left' }}>{entry.displayName}</div>
-            <div style={{ color: 'rgba(255,255,255,0.56)', fontSize: '0.74rem', textAlign: 'left', marginTop: '0.35rem' }}>{entry.uuid}</div>
+            {/* <div style={{ color: 'rgba(255,255,255,0.56)', fontSize: '0.74rem', textAlign: 'left', marginTop: '0.35rem' }}>{entry.uuid}</div> */}
           </div>
           <div style={{ padding: '0.35rem 0.7rem', borderRadius: '999px', background: 'rgba(255,255,255,0.14)', color: '#fff', fontSize: '0.72rem' }}>技能卡</div>
         </div>
@@ -123,7 +123,7 @@ function WarehouseCard({ entry }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.8rem', alignItems: 'flex-start' }}>
         <div>
           <div style={{ color: '#fff', fontSize: '1.08rem', textAlign: 'left' }}>{entry.displayName}</div>
-          <div style={{ color: 'rgba(255,255,255,0.56)', fontSize: '0.74rem', textAlign: 'left', marginTop: '0.35rem' }}>{entry.uuid}</div>
+          {/* <div style={{ color: 'rgba(255,255,255,0.56)', fontSize: '0.74rem', textAlign: 'left', marginTop: '0.35rem' }}>{entry.uuid}</div> */}
         </div>
         <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <div style={{ padding: '0.35rem 0.7rem', borderRadius: '999px', background: 'rgba(255,255,255,0.14)', color: '#fff', fontSize: '0.72rem' }}>

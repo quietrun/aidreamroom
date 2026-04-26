@@ -202,9 +202,9 @@ export function ItemPage() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.8rem' }}>
                       <div>
                         <div style={{ color: '#fff', fontSize: '1.08rem', textAlign: 'left' }}>{item.name}</div>
-                        <div style={{ color: 'rgba(255,255,255,0.56)', fontSize: '0.74rem', textAlign: 'left', marginTop: '0.35rem' }}>
+                        {/* <div style={{ color: 'rgba(255,255,255,0.56)', fontSize: '0.74rem', textAlign: 'left', marginTop: '0.35rem' }}>
                           {item.uuid}
-                        </div>
+                        </div> */}
                       </div>
                       <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                         <ItemTag label={getItemTypeLabel(item.itemType)} accent="rgba(255,255,255,0.14)" />

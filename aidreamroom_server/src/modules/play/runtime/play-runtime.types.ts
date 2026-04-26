@@ -253,6 +253,16 @@ export type ParsedIntent = {
   rawText: string;
 };
 
+export type PlayerInputMode = 'action' | 'dialogue' | 'thought';
+
+export type PlayerInputAnalysis = {
+  mode: PlayerInputMode;
+  spokenText?: string;
+  actionText?: string;
+  thoughtText?: string;
+  addresseeNpcId?: string;
+};
+
 export type PlayRollResult = {
   type: string;
   difficulty: string;
@@ -321,7 +331,16 @@ export type PlayClientSnapshot = {
   currentLocationId: string;
   currentLocationName: string;
   currentLocationDescription: string;
+  storySummary: string;
+  overviewEntries: string[];
+  completedNodeTitles: string[];
   inventoryLabels: string[];
+  inventoryItems: Array<{
+    itemId: string;
+    name: string;
+    count: number;
+    description: string;
+  }>;
   loadoutLabels: string[];
   objectiveLabels: string[];
   presentNpcNames: string[];
@@ -343,4 +362,5 @@ export type PlayMessageRecord = {
   message: string;
   character: string;
   speaker?: string;
+  mode?: PlayerInputMode | 'speech' | 'narration';
 };

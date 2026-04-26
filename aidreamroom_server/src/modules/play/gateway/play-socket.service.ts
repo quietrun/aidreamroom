@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { GptService } from '../../gpt/gpt.service';
 import { PlayService } from '../play.service';
 import {
+  analyzePlayerInput,
   appendGameEvent,
   applyRuleResult,
   buildClientSnapshot,
@@ -151,7 +152,11 @@ class GameSocketSession {
         this.sendPayload({ func: 'heartBeats' });
         return;
       case 'chat':
-        await this.handleChat(String(message.message ?? ''), Number(message.moduleId ?? 1));
+        await this.handleChat(
+          String(message.message ?? ''),
+          Number(message.moduleId ?? 1),
+          String(message.inputMode ?? 'action') as 'action' | 'dialogue' | 'thought',
+        );
         return;
       case 'quitGame':
         await this.saveGame();
@@ -197,7 +202,11 @@ class GameSocketSession {
     await this.sendState();
   }
 
-  private async handleChat(action: string, moduleId: number) {
+  private async handleChat(
+    action: string,
+    moduleId: number,
+    inputMode: 'action' | 'dialogue' | 'thought' = 'action',
+  ) {
     if (!this.bundle || !this.state || !this.character || !this.script) {
       this.logger.warn(
         `[${this.sessionId}] received chat before session initialization gameId=${this.gameId || 'unknown'}`,
@@ -245,9 +254,11 @@ class GameSocketSession {
       message: playerInput,
       character: 'me',
     };
+    const inputAnalysis = analyzePlayerInput(playerInput, this.bundle, inputMode, this.state);
+    playerMessage.mode = inputAnalysis.mode;
     this.messages.push(playerMessage);
 
-    const intent = parseIntent(playerInput, this.bundle);
+    const intent = parseIntent(playerInput, this.bundle, inputMode, this.state);
     const ruleResult = executeRule(
       playerInput,
       intent,
@@ -260,13 +271,23 @@ class GameSocketSession {
 
     const prompt = buildNarrationPrompt({
       bundle: this.bundle,
+      previousState: this.state,
       state: nextState,
       intent,
+      inputAnalysis,
       ruleResult,
       playerInput,
       character: this.character,
+      recentMessages: this.messages,
     });
+    const llmStartedAt = Date.now();
+    this.logger.log(
+      `[${this.sessionId}] requesting AI narration gameId=${this.gameId} moduleId=${moduleId} promptLength=${prompt.length}`,
+    );
     const llmRaw = await this.gptService.generateStructuredMessage(prompt, moduleId);
+    this.logger.log(
+      `[${this.sessionId}] AI narration raw response gameId=${this.gameId} moduleId=${moduleId} durationMs=${Date.now() - llmStartedAt} length=${llmRaw?.length ?? 0}`,
+    );
     const narration = normalizeNarrationOutput(llmRaw);
 
     if (!narration || (!narration.narration && narration.npc_dialogues.length === 0)) {
@@ -339,9 +360,10 @@ class GameSocketSession {
     if (narration.narration) {
       await this.sendChat({
         func: 'chat',
-        message: narration.narration,
+        message: this.replaceInternalIds(narration.narration),
         character: 'narrator',
         speaker: '艾达 AIDR（叙述者）',
+        mode: 'narration',
       });
     }
 
@@ -350,9 +372,10 @@ class GameSocketSession {
         this.bundle?.npcsById[dialogue.npcId]?.name ?? dialogue.npcId;
       await this.sendChat({
         func: 'chat',
-        message: dialogue.text,
+        message: this.replaceInternalIds(dialogue.text),
         character: dialogue.npcId,
         speaker: npcName,
+        mode: 'speech',
       });
     }
 
@@ -383,6 +406,34 @@ class GameSocketSession {
   private async sendChat(message: PlayMessageRecord) {
     this.messages.push(message);
     this.sendPayload(message);
+  }
+
+  private replaceInternalIds(text: string) {
+    if (!this.bundle || !text) {
+      return text;
+    }
+
+    const replacements = [
+      ...Object.values(this.bundle.locationsById).map((location) => [
+        location.location_id,
+        location.name,
+      ] as const),
+      ...Object.values(this.bundle.npcsById).map((npc) => [
+        npc.npc_id,
+        npc.name,
+      ] as const),
+      ...Object.values(this.bundle.itemsById).map((item) => [
+        item.item_id,
+        item.name,
+      ] as const),
+    ]
+      .filter(([id, name]) => id && name && id !== name)
+      .sort(([leftId], [rightId]) => rightId.length - leftId.length);
+
+    return replacements.reduce(
+      (result, [id, name]) => result.replaceAll(id, name),
+      text,
+    );
   }
 
   private sendPayload(payload: Record<string, unknown>) {

@@ -7,6 +7,7 @@ import {
   PlayGameEvent,
   PlayGameState,
   PlayMessageRecord,
+  PlayerInputAnalysis,
   PlayRollResult,
   PlayScriptBundle,
   PlayScriptRecord,
@@ -26,9 +27,23 @@ import {
 
 const MOVE_KEYWORDS = ['去', '前往', '移动', '走', '进入', '前进', '离开', '到'];
 const TALK_KEYWORDS = ['问', '询问', '交谈', '聊天', '搭话', '告诉', '说', '问问'];
-const INSPECT_KEYWORDS = ['看', '观察', '检查', '调查', '搜索', '摸索', '翻找', '查看'];
+const INSPECT_KEYWORDS = ['观察', '检查', '调查', '搜索', '摸索', '翻找', '查看', '看一下', '看一眼', '环顾', '打量'];
 const USE_KEYWORDS = ['用', '使用', '打开', '解锁', '启动', '拿出', '掏出'];
 const QUESTION_KEYWORDS = ['吗', '？', '?', '哪里', '谁', '什么', '怎么', '为何', '为什么'];
+const ROLL_TYPE_LABELS: Record<string, string> = {
+  perception: '侦查',
+  charisma: '魅力',
+  luck: '幸运',
+  strength: '力量',
+  constitution: '体质',
+  size: '体型',
+  dexterity: '敏捷',
+  appearance: '外貌',
+  intelligence: '智力',
+  power: '意志',
+  education: '教育',
+  none: '无',
+};
 
 const DIFFICULTY_RATE: Record<string, number> = {
   easy: 1,
@@ -98,6 +113,10 @@ function isEmptyObject(value: unknown) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value) && Object.keys(value as object).length === 0;
 }
 
+function normalizeInlineText(value: string) {
+  return String(value ?? '').replace(/\s+/g, ' ').trim();
+}
+
 function compareValue(actual: unknown, operator: string, expected: unknown) {
   switch (operator) {
     case 'exists':
@@ -116,6 +135,17 @@ function compareValue(actual: unknown, operator: string, expected: unknown) {
     default:
       return String(actual ?? '') === String(expected ?? '');
   }
+}
+
+function getRollTypeLabel(type: string) {
+  return ROLL_TYPE_LABELS[String(type ?? '').toLowerCase()] ?? String(type ?? '');
+}
+
+function localizeSummaryText(text: string) {
+  return String(text ?? '').replace(
+    /\b(perception|charisma|luck|strength|constitution|size|dexterity|appearance|intelligence|power|education|none)\b\s*检定/gi,
+    (match) => `${getRollTypeLabel(match.replace(/\s*检定$/i, ''))}检定`,
+  );
 }
 
 function hasAnyKeyword(input: string, keywords: string[]) {
@@ -412,10 +442,63 @@ export function createInitialGameState(
 export function parseIntent(
   playerInput: string,
   bundle: PlayScriptBundle,
+  inputMode: 'action' | 'dialogue' | 'thought' = 'action',
+  state?: PlayGameState,
 ): ParsedIntent {
   const targetLocationId = findLongestAlias(playerInput, bundle.locationAliases);
   const targetNpcId = findLongestAlias(playerInput, bundle.npcAliases);
   const targetItemId = findLongestAlias(playerInput, bundle.itemAliases);
+  const currentLocationNpcIds = state
+    ? getCurrentLocation(bundle, state).npcs ?? []
+    : [];
+
+  if (inputMode === 'thought') {
+    if (hasAnyKeyword(playerInput, INSPECT_KEYWORDS)) {
+      return {
+        intent: 'inspect',
+        targetItemId,
+        targetNpcId,
+        targetLocationId,
+        confidence: 0.8,
+        rawText: playerInput,
+      };
+    }
+
+    if (hasAnyKeyword(playerInput, QUESTION_KEYWORDS) || targetNpcId) {
+      return {
+        intent: 'ask_world_question',
+        targetNpcId,
+        confidence: 0.76,
+        rawText: playerInput,
+      };
+    }
+
+    return {
+      intent: 'free_roleplay',
+      confidence: 0.68,
+      rawText: playerInput,
+    };
+  }
+
+  if (inputMode === 'dialogue') {
+    const resolvedNpcId =
+      targetNpcId ||
+      (currentLocationNpcIds.length === 1 ? currentLocationNpcIds[0] : undefined);
+    if (resolvedNpcId) {
+      return {
+        intent: 'talk_to_npc',
+        targetNpcId: resolvedNpcId,
+        confidence: 0.97,
+        rawText: playerInput,
+      };
+    }
+
+    return {
+      intent: hasAnyKeyword(playerInput, QUESTION_KEYWORDS) ? 'ask_world_question' : 'free_roleplay',
+      confidence: 0.72,
+      rawText: playerInput,
+    };
+  }
 
   if (targetLocationId && hasAnyKeyword(playerInput, MOVE_KEYWORDS)) {
     return {
@@ -497,8 +580,86 @@ export function parseIntent(
   };
 }
 
+export function analyzePlayerInput(
+  playerInput: string,
+  bundle: PlayScriptBundle,
+  preferredMode: 'action' | 'dialogue' | 'thought' = 'action',
+  state?: PlayGameState,
+): PlayerInputAnalysis {
+  const raw = normalizeInlineText(playerInput);
+  const currentLocationNpcIds = state
+    ? getCurrentLocation(bundle, state).npcs ?? []
+    : [];
+  const explicitNpcId = findLongestAlias(raw, bundle.npcAliases);
+  const targetNpcId =
+    preferredMode === 'dialogue'
+      ? explicitNpcId || (currentLocationNpcIds.length === 1 ? currentLocationNpcIds[0] : undefined)
+      : undefined;
+
+  if (preferredMode === 'dialogue') {
+    return {
+      mode: 'dialogue',
+      spokenText: raw,
+      addresseeNpcId: targetNpcId,
+    };
+  }
+
+  if (preferredMode === 'thought') {
+    return {
+      mode: 'thought',
+      thoughtText: raw,
+      addresseeNpcId: targetNpcId,
+    };
+  }
+
+  return {
+    mode: 'action',
+    actionText: raw,
+  };
+}
+
 function summarizeOutcome(outcome: RawOutcome) {
   return String(outcome.description ?? '').trim();
+}
+
+function getNodeStage(currentNode: RawScriptNode) {
+  const title = String(currentNode.title ?? '');
+  const stage = title.split('：').at(-1)?.trim() ?? title.trim();
+  switch (stage) {
+    case '初探':
+      return 'intro';
+    case '异响':
+      return 'noise';
+    case '交涉':
+      return 'dialogue';
+    case '搜寻':
+      return 'search';
+    case '抉择':
+      return 'decision';
+    default:
+      return 'unknown';
+  }
+}
+
+function shouldApplyNodeOutcome(currentNode: RawScriptNode, intent: ParsedIntent) {
+  const stage = getNodeStage(currentNode);
+
+  switch (intent.intent) {
+    case 'move':
+      return false;
+    case 'talk_to_npc':
+      return stage === 'dialogue';
+    case 'ask_world_question':
+      return false;
+    case 'free_roleplay':
+      return false;
+    case 'inspect':
+      return stage === 'intro' || stage === 'noise' || stage === 'search';
+    case 'use_item':
+      return stage !== 'dialogue';
+    default:
+      return stage === 'intro' || stage === 'noise' || stage === 'search';
+  }
 }
 
 function scoreOutcomeMatch(
@@ -661,15 +822,6 @@ function applyOutcomeToResult(
   for (const itemId of outcome.items_gained ?? []) {
     inventoryAdd[itemId] = (inventoryAdd[itemId] ?? 0) + 1;
   }
-
-  const npcStates: PlayGameState['npcStates'] = {};
-  for (const npcId of outcome.npcs_encountered ?? []) {
-    npcStates[npcId] = {
-      met: true,
-      hostility: bundle.npcsById[npcId]?.hostility ?? 'neutral',
-    };
-  }
-
   const nextNode =
     outcome.next_node && outcome.next_node !== 'node_end'
       ? bundle.nodesById[outcome.next_node]
@@ -678,6 +830,20 @@ function applyOutcomeToResult(
     outcome.target_location_id ??
     nextNode?.location_id ??
     currentLocation.location_id;
+  const encounteredNpcIds = (outcome.npcs_encountered ?? []).filter((npcId) => {
+    if (!npcId || nextLocationId === currentLocation.location_id) {
+      return Boolean(npcId);
+    }
+    return (bundle.locationsById[nextLocationId]?.npcs ?? []).includes(npcId);
+  });
+
+  const npcStates: PlayGameState['npcStates'] = {};
+  for (const npcId of encounteredNpcIds) {
+    npcStates[npcId] = {
+      met: true,
+      hostility: bundle.npcsById[npcId]?.hostility ?? 'neutral',
+    };
+  }
 
   const status =
     outcome.condition?.is_ending || outcome.next_node === 'node_end'
@@ -734,7 +900,7 @@ function applyOutcomeToResult(
     );
   }
 
-  for (const npcId of outcome.npcs_encountered ?? []) {
+  for (const npcId of encounteredNpcIds) {
     result.actionResults.push(
       buildActionResult('dialogue', true, `遭遇 ${getDisplayNpcName(bundle, npcId)}`, {
         npcId,
@@ -813,12 +979,7 @@ export function executeRule(
 ): RuleResult {
   const currentNode = getCurrentNode(bundle, state);
   const currentLocation = getCurrentLocation(bundle, state);
-  const presentNpcIds = [
-    ...new Set([
-      ...(currentLocation.npcs ?? []),
-      ...Object.keys(state.npcStates).filter((npcId) => state.npcStates[npcId]?.met),
-    ]),
-  ];
+  const presentNpcIds = [...new Set(currentLocation.npcs ?? [])];
   const availableConnections = listAvailableConnections(bundle, state, character);
   const baseResult: RuleResult = {
     success: true,
@@ -828,14 +989,17 @@ export function executeRule(
     allowedNextNodes: [],
   };
 
-  const { outcome, roll } = matchOutcome(
-    playerInput,
-    currentNode,
-    state,
-    character,
-    intent,
-    bundle,
-  );
+  const shouldApplyOutcome = shouldApplyNodeOutcome(currentNode, intent);
+  const { outcome, roll } = shouldApplyOutcome
+    ? matchOutcome(
+        playerInput,
+        currentNode,
+        state,
+        character,
+        intent,
+        bundle,
+      )
+    : { outcome: undefined, roll: undefined };
 
   if (roll) {
     baseResult.roll = roll;
@@ -843,7 +1007,7 @@ export function executeRule(
       buildActionResult(
         'roll',
         roll.success,
-        `${roll.type} 检定 ${roll.success ? '成功' : '失败'}（${roll.rollData}/${roll.targetData}）`,
+        `${getRollTypeLabel(roll.type)}检定 ${roll.success ? '成功' : '失败'}（${roll.rollData}/${roll.targetData}）`,
       ),
     );
   }
@@ -1121,7 +1285,7 @@ export function applyRuleResult(
     latestSummary,
   ]
     .filter(Boolean)
-    .slice(-5)
+    .slice(-8)
     .join('；');
 
   return nextState;
@@ -1132,10 +1296,10 @@ export function appendGameEvent(
   playerInput: string,
   ruleResult: RuleResult,
 ) {
-  const summary = `${playerInput} -> ${ruleResult.actionResults
+  const summary = localizeSummaryText(`${playerInput} -> ${ruleResult.actionResults
     .map((item) => item.summary)
     .filter(Boolean)
-    .join('；')}`;
+    .join('；')}`);
 
   const eventType = (ruleResult.actionResults[0]?.type ?? 'system') as PlayEventType;
   const relatedItemIds = ruleResult.actionResults
@@ -1157,24 +1321,39 @@ export function appendGameEvent(
     relatedNodeIds,
   };
 
-  state.recentEvents = [...state.recentEvents, event].slice(-10);
+  state.recentEvents = [...state.recentEvents, event].slice(-20);
   state.narrativeSummary = state.recentEvents
     .map((item) => item.summary)
-    .slice(-5)
+    .slice(-10)
     .join('；');
 }
 
 export function buildNarrationPrompt(params: {
   bundle: PlayScriptBundle;
+  previousState: PlayGameState;
   state: PlayGameState;
   intent: ParsedIntent;
+  inputAnalysis: PlayerInputAnalysis;
   ruleResult: RuleResult;
   playerInput: string;
   character: PlayCharacterProfile;
+  recentMessages?: PlayMessageRecord[];
 }) {
-  const { bundle, state, intent, ruleResult, playerInput, character } = params;
+  const {
+    bundle,
+    previousState,
+    state,
+    intent,
+    inputAnalysis,
+    ruleResult,
+    playerInput,
+    character,
+    recentMessages = [],
+  } = params;
   const currentNode = getCurrentNode(bundle, state);
   const currentLocation = getCurrentLocation(bundle, state);
+  const previousNode = getCurrentNode(bundle, previousState);
+  const previousLocation = getCurrentLocation(bundle, previousState);
   const presentNpcs = (currentLocation.npcs ?? [])
     .map((npcId) => bundle.npcsById[npcId])
     .filter(Boolean)
@@ -1204,8 +1383,19 @@ export function buildNarrationPrompt(params: {
     objectives: state.currentObjectives,
     allowedNextNodes: ruleResult.allowedNextNodes,
   };
+  const responseNpcIds = new Set(currentLocation.npcs ?? []);
 
   const flavorContext = {
+    sceneBeforeAction: {
+      nodeTitle: previousNode.title,
+      locationName: previousLocation.name,
+      locationDescription: previousLocation.description ?? '',
+    },
+    sceneAfterAction: {
+      nodeTitle: currentNode.title,
+      locationName: currentLocation.name,
+      locationDescription: currentLocation.description ?? '',
+    },
     scene: {
       title: currentNode.title,
       description: currentNode.description ?? '',
@@ -1219,19 +1409,51 @@ export function buildNarrationPrompt(params: {
       name: character.name,
       info: character.info,
     },
+    recentMessages: recentMessages.slice(-8).map((message) => ({
+      character: message.character,
+      speaker: message.speaker ?? '',
+      mode: message.mode ?? '',
+      message: message.message,
+    })),
+    continuity: {
+      currentScene: `${currentNode.title} / ${currentLocation.name}`,
+      currentSceneDescription:
+        currentNode.description ?? currentLocation.description ?? '',
+      lastEvents: state.recentEvents.slice(-4).map((event) => event.summary),
+      latestAssistantMessages: recentMessages
+        .filter((message) => message.character !== 'me')
+        .slice(-4)
+        .map((message) => ({
+          speaker: message.speaker ?? message.character,
+          mode: message.mode ?? '',
+          message: message.message,
+        })),
+    },
+    responseNpcIds: [...responseNpcIds],
   };
 
   return [
     '你是受控的文字 RPG 叙事引擎。',
+    '你要像连续剧分镜一样承接上一轮，当前输出发生在上一条 recentMessages 之后的紧接下一瞬间，不能跳戏、不能重开场、不能忽然改口。',
     '你只能基于 authoritative_state、flavor_context、rule_result 输出，不得创造不存在的地点、物品、NPC、结局或状态变化。',
+    '要先看清 sceneBeforeAction 和 sceneAfterAction：如果场景没有变化，就留在原地继续承接；如果场景变化了，必须先用 narration 交代清楚是如何从前一场景转到后一场景的。',
+    '先阅读 flavor_context.continuity、recentEvents、recentMessages，再决定这一轮如何接续；如果上一轮已经说过的信息没有变化，不要重复设定或推翻它。',
+    '必须保证地点、在场 NPC、已获得物品、剧情进度、人物关系前后一致；若 rule_result 没有产生新状态变化，就不要编造新的状态变化。',
     '如果 rule_result.success 为 false，需要写出合理失败反馈，但不能强行推进剧情。',
     '输出只面向玩家阅读的故事内容：narration 写旁白，npc_dialogues 写 NPC 台词。',
+    '必须优先遵守 player_input_analysis，而且 mode 完全以用户前端选择为准，不要根据句子里的关键词自行改判模式。mode=dialogue 时，玩家这回合是在对外说话，重点回应 spokenText；mode=action 时，重点写动作结果；mode=thought 时，这是角色内心想法或试探，不要让 NPC 把 thoughtText 当成玩家说出口的话。',
+    '玩家说的话绝不能出现在 npc_dialogues 中，也不要把玩家原话复述成 narrator 的长段转述；thought 模式下也不要让 NPC 直接听见玩家心声。',
+    'npc_dialogues 只能包含 flavor_context.responseNpcIds 中的 NPC 直接发言；如果没有 NPC 合理回应，就返回空数组。',
+    'narration 只描述环境变化、动作结果、气氛和 NPC 的非语言反应，不要把 narration 写成对白。',
+    '如果输入是 dialogue，就优先生成贴着上下文的回应，而不是另起炉灶讲新的事件；如果输入是 thought，可以给出更细微的观察、回忆、判断或心理压力，但仍必须和当前场景直接相关。',
+    '不得在面向玩家的 narration、npc_dialogues、feedback、ui_hints 中输出内部 ID，例如 loc_001、node_001、npc_001、item_001；地点、NPC、物品必须使用 name 字段的中文展示名。',
     '不要在输出中展示 roll 点、属性名、点数、目标数值、检定结果、规则执行摘要或“当前场景”这类系统信息。',
     '请严格返回 JSON，不要使用 Markdown 代码块。',
     'JSON Schema: {"narration":"string","npc_dialogues":[{"npcId":"string","text":"string"}],"feedback":"string","ui_hints":["string"]}',
     `authoritative_state=${JSON.stringify(authoritativeState)}`,
     `flavor_context=${JSON.stringify(flavorContext)}`,
     `parsed_intent=${JSON.stringify(intent)}`,
+    `player_input_analysis=${JSON.stringify(inputAnalysis)}`,
     `rule_result=${JSON.stringify(ruleResult)}`,
     `player_input=${JSON.stringify(playerInput)}`,
   ].join('\n');
@@ -1282,6 +1504,29 @@ export function buildClientSnapshot(
         ? `${getDisplayItemName(bundle, itemId)} x${count}`
         : getDisplayItemName(bundle, itemId),
   );
+  const inventoryItems = Object.entries(state.inventory).map(([itemId, count]) => ({
+    itemId,
+    name: getDisplayItemName(bundle, itemId),
+    count,
+    description: String(bundle.itemsById[itemId]?.description ?? '').trim(),
+  }));
+  const storySummary = localizeSummaryText(state.narrativeSummary);
+  const recentEventSummaries = state.recentEvents
+    .map((item) => localizeSummaryText(item.summary))
+    .slice(-12);
+  const completedNodeTitles = state.visitedNodeIds
+    .filter((nodeId) => nodeId !== state.currentNodeId || state.status === 'finished')
+    .map((nodeId) => bundle.nodesById[nodeId]?.title ?? '')
+    .filter(Boolean)
+    .reverse();
+  const overviewEntries = [
+    currentLocation.name ? `当前位置：${currentLocation.name}` : '',
+    currentNode.title ? `当前剧情：${currentNode.title}` : '',
+    storySummary ? `前情提要：${storySummary}` : '',
+    ...recentEventSummaries,
+  ]
+    .map((item) => String(item).trim())
+    .filter(Boolean);
 
   return {
     sessionId: state.sessionId,
@@ -1293,14 +1538,18 @@ export function buildClientSnapshot(
     currentLocationId: currentLocation.location_id,
     currentLocationName: currentLocation.name,
     currentLocationDescription: currentLocation.description ?? '',
+    storySummary,
+    overviewEntries,
+    completedNodeTitles,
     inventoryLabels,
+    inventoryItems,
     loadoutLabels: [...state.loadoutLabels],
     objectiveLabels: buildObjectives(bundle, state),
     presentNpcNames: (currentLocation.npcs ?? [])
       .map((npcId) => bundle.npcsById[npcId]?.name)
       .filter(Boolean) as string[],
     availableMoveLabels,
-    recentEventSummaries: state.recentEvents.map((item) => item.summary).slice(-6),
+    recentEventSummaries,
   };
 }
 

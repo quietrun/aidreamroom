@@ -1,13 +1,45 @@
 ﻿import { images } from '../../constant';
 
-export function LeftChatMessage({ message, speakerName = '艾达 AIDR', mobile = false, immersive = false }) {
+const PLAYER_MODE_LABELS = {
+  action: '动作',
+  dialogue: '对话',
+  thought: '思考',
+};
+
+function getPlayerModeLabel(mode) {
+  return PLAYER_MODE_LABELS[mode] || '';
+}
+
+export function LeftChatMessage({
+  message,
+  speakerName = '艾达 AIDR',
+  mobile = false,
+  immersive = false,
+  variant = 'character',
+  showRecordButton = false,
+  recorded = false,
+  onRecord,
+}) {
   if (immersive) {
     return (
-      <div className="dream-message dream-message-left">
+      <div className={`dream-message dream-message-left is-${variant}`}>
         <img alt="aidr" className="dream-message-avatar" src={images.ava_aidr} />
         <div className="dream-message-body">
           <div className="dream-message-speaker">{speakerName}</div>
-          <div className="dream-message-bubble">{message}</div>
+          <div className="dream-message-bubble-wrap">
+            <div className="dream-message-bubble">{message}</div>
+            {showRecordButton ? (
+              <div className="dream-message-actions">
+                <button
+                  className={`dream-record-button ${recorded ? 'is-recorded' : ''}`}
+                  type="button"
+                  onClick={onRecord}
+                >
+                  {recorded ? '取消记录' : '记录'}
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
     );
@@ -26,12 +58,24 @@ export function LeftChatMessage({ message, speakerName = '艾达 AIDR', mobile =
   );
 }
 
-export function RightChatMessage({ message, characterName, image, mobile = false, immersive = false }) {
+export function RightChatMessage({
+  message,
+  characterName,
+  image,
+  mobile = false,
+  immersive = false,
+  mode = 'action',
+}) {
+  const modeLabel = getPlayerModeLabel(mode);
+
   if (immersive) {
     return (
-      <div className="dream-message dream-message-right">
+      <div className={`dream-message dream-message-right is-player is-${mode || 'action'}`}>
         <div className="dream-message-body">
-          <div className="dream-message-speaker">{characterName}</div>
+          <div className="dream-message-meta">
+            <div className="dream-message-speaker">{characterName}</div>
+            {modeLabel ? <span className="dream-message-kind">{modeLabel}</span> : null}
+          </div>
           <div className="dream-message-bubble">{message}</div>
         </div>
         <img alt="character" className="dream-message-avatar" src={image || images.icon_character_avater} />

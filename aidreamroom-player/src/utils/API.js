@@ -117,6 +117,8 @@ class Api {
 
   PLAY_QUERY_TIMES_REMAIN = () => GET('play/query/times/remain', null, header);
 
+  GPT_GENERATE_MESSAGE = (params) => POST('gpt/generate/message', params, header);
+
   USER_CHECK_IN_REGISTERLIST = (params) =>
     GET('users/check/in/registerlist', params, null);
 

@@ -13,6 +13,10 @@ function getLeftSpeakerName(item) {
     return item.speaker;
   }
 
+  if (item.character === 'system') {
+    return '系统';
+  }
+
   if (item.character === 'narrator') {
     return '艾达 AIDR（叙述者）';
   }
@@ -20,10 +24,37 @@ function getLeftSpeakerName(item) {
   return '艾达 AIDR';
 }
 
+function getLeftMessageVariant(item) {
+  if (item.character === 'system') {
+    return 'system';
+  }
+
+  if (item.character === 'narrator') {
+    return 'narrator';
+  }
+
+  return 'character';
+}
+
 const backpackTabs = [
   { key: 'prop', label: '道具' },
   { key: 'plot', label: '剧情物品' },
   { key: 'skill', label: '技能' },
+];
+
+const inputModeOptions = [
+  { key: 'action', label: '动作' },
+  { key: 'thought', label: '思考' },
+  { key: 'dialogue', label: '对话' },
+];
+
+function getInputModeLabel(mode) {
+  return inputModeOptions.find((item) => item.key === mode)?.label || '动作';
+}
+
+const detailTabOptions = [
+  { key: 'overview', label: '剧情概述' },
+  { key: 'records', label: '信息记录' },
 ];
 
 function getBackpackItemLabel(item) {
@@ -69,10 +100,17 @@ function getMetricValue(characterInfo, keys, fallback = '--') {
 }
 
 function normalizeOverviewText(item) {
-  return String(item || '')
-    .replace(/^当前位置：/, '')
-    .replace(/^当前剧情：/, '')
-    .trim();
+  return String(item || '').trim();
+}
+
+function canRecordDialogue(item) {
+  return Boolean(
+    item &&
+    item.func === 'chat' &&
+    item.character &&
+    item.character !== 'me' &&
+    item.character !== 'system',
+  );
 }
 
 export function PlayMainPage() {
@@ -81,10 +119,29 @@ export function PlayMainPage() {
   const [showHelp, setShowHelp] = useState(helpDialogConfig.help_continue_play.flag && firstLogin);
   const [showImage, setShowImage] = useState('');
   const [inputMessage, setInputMessage] = useState('');
+  const [inputMode, setInputMode] = useState('action');
   const [activeBackpackTab, setActiveBackpackTab] = useState('prop');
+  const [activeDetailTab, setActiveDetailTab] = useState('overview');
   const [pendingBackpackAction, setPendingBackpackAction] = useState(null);
   const mainscroll = useRef(null);
-  const { characterInfo, messageList, boardList, currentModuleName, waitingMessage, waitingImage, remainTime, sendMessage } = usePlaySession({
+  const {
+    characterInfo,
+    messageList,
+    boardList,
+    currentModuleName,
+    waitingMessage,
+    waitingImage,
+    remainTime,
+    isFinish,
+    dialogueRecordList,
+    isDialogueRecorded,
+    saveDialogueRecord,
+    hintOptions,
+    hintLoading,
+    requestHintOptions,
+    sendHintOption,
+    sendMessage,
+  } = usePlaySession({
     gameId: id,
     socketUrl: 'ws://localhost:3300/',
   });
@@ -114,8 +171,21 @@ export function PlayMainPage() {
         inputMessage,
       )
       : inputMessage;
+    const nextInputMode = pendingBackpackAction ? 'action' : inputMode;
 
-    if (sendMessage(messageText)) {
+    if (sendMessage(messageText, { inputMode: nextInputMode })) {
+      setInputMessage('');
+      setPendingBackpackAction(null);
+    }
+  };
+
+  const handleHintRequest = async () => {
+    await requestHintOptions(inputMessage);
+  };
+
+  const handleHintSelect = (option) => {
+    if (sendHintOption(option)) {
+      setInputMode(option.mode || 'action');
       setInputMessage('');
       setPendingBackpackAction(null);
     }
@@ -153,9 +223,20 @@ export function PlayMainPage() {
                   return <LeftImageMessage key={`${item.character}-${index}`} image={item.message} speakerName={getLeftSpeakerName(item)} onShowImage={setShowImage} immersive />;
                 }
                 if (item.character !== 'me') {
-                  return <LeftChatMessage key={`${item.character}-${index}`} message={item.message} speakerName={getLeftSpeakerName(item)} immersive />;
+                  return (
+                    <LeftChatMessage
+                      key={`${item.character}-${index}`}
+                      message={item.message}
+                      speakerName={getLeftSpeakerName(item)}
+                      variant={getLeftMessageVariant(item)}
+                      immersive
+                      showRecordButton={canRecordDialogue(item)}
+                      recorded={isDialogueRecorded(item)}
+                      onRecord={() => saveDialogueRecord(item)}
+                    />
+                  );
                 }
-                return <RightChatMessage key={`${item.character}-${index}`} message={item.message} characterName={characterName} image={characterInfo?.image} immersive />;
+                return <RightChatMessage key={`${item.character}-${index}`} message={item.message} characterName={characterName} image={characterInfo?.image} mode={item.mode} immersive />;
               })}
               {waitingMessage && <img alt="waiting" className="dream-waiting" src={waitingImage} />}
             </div>
@@ -167,16 +248,60 @@ export function PlayMainPage() {
                   <button type="button" onClick={() => setPendingBackpackAction(null)}>取消</button>
                 </div>
               )}
+              <div className="dream-input-mode-group">
+                {inputModeOptions.map((option) => (
+                  <button
+                    key={option.key}
+                    type="button"
+                    className={inputMode === option.key ? 'active' : ''}
+                    onClick={() => setInputMode(option.key)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              {hintOptions.length ? (
+                <div className="dream-hint-panel">
+                  <div className="dream-hint-header">
+                    <span>AI 提示</span>
+                    <button type="button" onClick={handleHintRequest} disabled={hintLoading}>
+                      {hintLoading ? '生成中...' : '换一组'}
+                    </button>
+                  </div>
+                  <div className="dream-hint-list">
+                    {hintOptions.map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        className="dream-hint-option"
+                        onClick={() => handleHintSelect(option)}
+                      >
+                        <div className="dream-hint-option-top">
+                          <span className={`dream-hint-badge is-${option.mode}`}>{getInputModeLabel(option.mode)}</span>
+                          <strong>{option.label}</strong>
+                        </div>
+                        <p>{option.content}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               <div className="dream-input-bar">
                 <button className="dream-voice-button" type="button" title="语音">
                   <img alt="voice" src={images.icon_language} />
                 </button>
                 <Input.TextArea
                   autoSize={{ maxRows: 4 }}
-                  placeholder="请尽情探索吧...  Shift+Enter 发送"
+                  placeholder={
+                    inputMode === 'dialogue'
+                      ? '输入你要说的话...  Enter 发送，Shift+Enter 换行'
+                      : inputMode === 'thought'
+                        ? '输入角色的思考、判断或试探...  Enter 发送，Shift+Enter 换行'
+                        : '输入动作或行为...  Enter 发送，Shift+Enter 换行'
+                  }
                   className="dream-input"
                   onKeyDown={(event) => {
-                    if (event.shiftKey && event.key === 'Enter') {
+                    if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
                       event.preventDefault();
                       handleSend();
                     }
@@ -184,6 +309,14 @@ export function PlayMainPage() {
                   value={inputMessage}
                   onChange={(event) => setInputMessage(event.target.value)}
                 />
+                <button
+                  className="dream-hint-button"
+                  type="button"
+                  onClick={handleHintRequest}
+                  disabled={hintLoading || waitingMessage || isFinish}
+                >
+                  {hintLoading ? '生成中...' : '给我个提示'}
+                </button>
                 <button className="dream-send-button" type="button" onClick={handleSend}>
                   <span>发送</span>
                   <img alt="send" src={images.icon_send_message} />
@@ -229,6 +362,7 @@ export function PlayMainPage() {
                       <div className="dream-backpack-item-main">
                         <span>{getBackpackItemLabel(item)}</span>
                         {item.source && <em>{item.source}</em>}
+                        {item.description ? <p>{item.description}</p> : null}
                       </div>
                       <div className="dream-backpack-actions">
                         <button type="button" onClick={() => setPendingBackpackAction({ action: 'use', item })}>使用</button>
@@ -243,17 +377,41 @@ export function PlayMainPage() {
 
             <section className="dream-board-card dream-overview-card">
               <div className="dream-board-header">
-                <span>剧情概述</span>
+                <span>{detailTabOptions.find((item) => item.key === activeDetailTab)?.label || '剧情概述'}</span>
+                <div className="dream-tab-group">
+                  {detailTabOptions.map((tab) => (
+                    <button
+                      key={tab.key}
+                      className={activeDetailTab === tab.key ? 'active' : ''}
+                      type="button"
+                      onClick={() => setActiveDetailTab(tab.key)}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="dream-overview-list">
-                {storyOverviewList.filter(Boolean).map((item, index) => (
-                  <div key={`overview-${index}`} className={index === 0 ? 'active' : ''}>
-                    <i />
-                    <span>{normalizeOverviewText(item)}</span>
-                  </div>
-                ))}
-                {!storyOverviewList.length && <div className="dream-empty">暂无剧情进展</div>}
-              </div>
+              {activeDetailTab === 'overview' ? (
+                <div className="dream-overview-list">
+                  {storyOverviewList.filter(Boolean).map((item, index) => (
+                    <div key={`overview-${index}`} className={index === 0 ? 'active' : ''}>
+                      <i />
+                      <span>{normalizeOverviewText(item)}</span>
+                    </div>
+                  ))}
+                  {!storyOverviewList.length && <div className="dream-empty">暂无已完成剧情节点</div>}
+                </div>
+              ) : (
+                <div className="dream-record-list">
+                  {dialogueRecordList.map((item) => (
+                    <div key={item.id} className="dream-record-item">
+                      <strong>{item.speaker || getLeftSpeakerName(item)}</strong>
+                      <p>{item.message}</p>
+                    </div>
+                  ))}
+                  {!dialogueRecordList.length && <div className="dream-empty">在 NPC 对话右下角点击“记录”后，会显示在这里</div>}
+                </div>
+              )}
             </section>
           </aside>
         </div>
