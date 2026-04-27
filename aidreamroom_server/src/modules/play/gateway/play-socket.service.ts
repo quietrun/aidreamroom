@@ -2,12 +2,15 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/commo
 import { ConfigService } from '@nestjs/config';
 
 import { GptService } from '../../gpt/gpt.service';
+import { sanitizeNarrationOutputContent } from '../runtime/play-runtime.prompt.util';
 import { PlayService } from '../play.service';
 import {
   analyzePlayerInput,
   appendGameEvent,
   applyRuleResult,
   buildClientSnapshot,
+  buildOpeningFallbackMessages,
+  buildOpeningPrompt,
   buildNarrationPrompt,
   executeRule,
   normalizeNarrationOutput,
@@ -100,6 +103,8 @@ class GameSocketSession {
   private character: PlayCharacterProfile | null = null;
   private messages: PlayMessageRecord[] = [];
   private userRemainConfig: Array<{ times: number; moduleId: number }> = [];
+  private modelId = 1;
+  private openingTask: Promise<void> | null = null;
 
   constructor(
     private readonly connection: any,
@@ -190,6 +195,7 @@ class GameSocketSession {
     this.state = session.state;
     this.character = session.character;
     this.messages = session.messages;
+    this.modelId = Number(session.game.model_id ?? 1) || 1;
     this.userRemainConfig = await this.playService.queryRemainTimes(this.userId);
     this.logger.log(
       `[${this.sessionId}] websocket session ready gameId=${this.gameId} userId=${this.userId} history=${this.messages.length}`,
@@ -200,6 +206,7 @@ class GameSocketSession {
       messages: this.messages,
     });
     await this.sendState();
+    this.startOpeningScene();
   }
 
   private async handleChat(
@@ -216,6 +223,10 @@ class GameSocketSession {
         message: '游玩会话尚未初始化。',
       });
       return;
+    }
+
+    if (this.openingTask) {
+      await this.openingTask;
     }
 
     const playerInput = action.trim();
@@ -235,7 +246,7 @@ class GameSocketSession {
       return;
     }
 
-    const enabled = this.consumeLimit(moduleId);
+    const enabled = true || this.consumeLimit(moduleId);
     if (!enabled) {
       this.logger.warn(
         `[${this.sessionId}] module limit exhausted for gameId=${this.gameId} moduleId=${moduleId}`,
@@ -289,8 +300,14 @@ class GameSocketSession {
       `[${this.sessionId}] AI narration raw response gameId=${this.gameId} moduleId=${moduleId} durationMs=${Date.now() - llmStartedAt} length=${llmRaw?.length ?? 0}`,
     );
     const narration = normalizeNarrationOutput(llmRaw);
+    const sanitizedNarration = narration
+      ? sanitizeNarrationOutputContent(narration, this.messages)
+      : null;
 
-    if (!narration || (!narration.narration && narration.npc_dialogues.length === 0)) {
+    if (
+      !sanitizedNarration ||
+      (!sanitizedNarration.narration && sanitizedNarration.npc_dialogues.length === 0)
+    ) {
       this.refundLimit(moduleId);
       this.logger.warn(
         `[${this.sessionId}] AI narration unavailable gameId=${this.gameId} moduleId=${moduleId}; turn was not advanced`,
@@ -306,14 +323,14 @@ class GameSocketSession {
     }
 
     this.state = nextState;
-    await this.emitTurn(narration);
+    await this.emitTurn(sanitizedNarration);
     await this.playService.saveTurnLog({
       gameId: this.gameId,
       turn: nextState.turnCount,
       playerInput,
       parsedIntent: intent,
       ruleResult,
-      llmOutput: narration,
+      llmOutput: sanitizedNarration,
     });
     await this.saveGame();
     this.logger.log(
@@ -357,6 +374,81 @@ class GameSocketSession {
   }
 
   private async emitTurn(narration: NarrationOutput) {
+    await this.emitNarrationMessages(narration);
+    await this.sendState();
+
+    if (this.state?.status === 'finished') {
+      this.sendPayload({ func: 'finish' });
+      await this.playService.markFinished(this.gameId);
+    }
+  }
+
+  private startOpeningScene() {
+    if (this.openingTask || !this.shouldGenerateOpeningScene()) {
+      return;
+    }
+
+    this.openingTask = this.generateOpeningScene()
+      .catch((error) => {
+        this.logger.error(
+          `[${this.sessionId}] failed to generate opening scene gameId=${this.gameId}`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      })
+      .finally(() => {
+        this.openingTask = null;
+      });
+  }
+
+  private shouldGenerateOpeningScene() {
+    if (!this.bundle || !this.state || !this.character) {
+      return false;
+    }
+
+    if (this.state.turnCount > 0) {
+      return false;
+    }
+
+    return !this.messages.some((message) =>
+      message.mode === 'narration' ||
+      message.mode === 'speech' ||
+      (message.character !== 'system' && message.character !== 'me'),
+    );
+  }
+
+  private async generateOpeningScene() {
+    if (!this.bundle || !this.state || !this.character) {
+      return;
+    }
+
+    const prompt = buildOpeningPrompt(this.bundle, this.state, this.character);
+    this.logger.log(
+      `[${this.sessionId}] requesting AI opening gameId=${this.gameId} promptLength=${prompt.length}`,
+    );
+    const llmRaw = await this.gptService.generateStructuredMessage(prompt, this.modelId);
+    const opening = normalizeNarrationOutput(llmRaw);
+    const sanitizedOpening = opening
+      ? sanitizeNarrationOutputContent(opening, this.messages)
+      : null;
+
+    if (
+      sanitizedOpening &&
+      (sanitizedOpening.narration || sanitizedOpening.npc_dialogues.length > 0)
+    ) {
+      await this.emitNarrationMessages(sanitizedOpening);
+    } else {
+      this.logger.warn(
+        `[${this.sessionId}] AI opening unavailable gameId=${this.gameId}; using fallback opening`,
+      );
+      for (const message of buildOpeningFallbackMessages(this.bundle, this.state)) {
+        await this.sendChat(message);
+      }
+    }
+
+    await this.saveGame();
+  }
+
+  private async emitNarrationMessages(narration: NarrationOutput) {
     if (narration.narration) {
       await this.sendChat({
         func: 'chat',
@@ -377,13 +469,6 @@ class GameSocketSession {
         speaker: npcName,
         mode: 'speech',
       });
-    }
-
-    await this.sendState();
-
-    if (this.state?.status === 'finished') {
-      this.sendPayload({ func: 'finish' });
-      await this.playService.markFinished(this.gameId);
     }
   }
 

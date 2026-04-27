@@ -66,7 +66,7 @@ export class ScriptsService implements OnModuleInit {
             \`title\` text NOT NULL,
             \`description\` longtext NULL,
             \`total_nodes\` int NULL DEFAULT 0,
-            \`theme\` varchar(64) NULL,
+            \`theme\` text NULL,
             \`difficulty\` varchar(64) NULL,
             \`required_items\` longtext NULL,
             \`required_knowledge\` longtext NULL,
@@ -79,6 +79,21 @@ export class ScriptsService implements OnModuleInit {
             PRIMARY KEY (\`uuid\`)
           ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         `)
+        .then(() =>
+          this.db.execute(`
+            ALTER TABLE \`script_table\`
+            MODIFY COLUMN \`title\` text NOT NULL,
+            MODIFY COLUMN \`description\` longtext NULL,
+            MODIFY COLUMN \`theme\` longtext NULL,
+            MODIFY COLUMN \`difficulty\` varchar(64) NULL,
+            MODIFY COLUMN \`required_items\` longtext NULL,
+            MODIFY COLUMN \`required_knowledge\` longtext NULL,
+            MODIFY COLUMN \`script_file\` longtext NULL,
+            MODIFY COLUMN \`npc_file\` longtext NULL,
+            MODIFY COLUMN \`item_file\` longtext NULL,
+            MODIFY COLUMN \`map_file\` longtext NULL
+          `),
+        )
         .then(() => undefined);
     }
 
@@ -86,16 +101,24 @@ export class ScriptsService implements OnModuleInit {
   }
 
   private buildScriptResponse(row: ScriptSummaryRow, includeFiles = true) {
+    const scriptMetadata = includeFiles
+      ? this.parseScriptFileMetadata(row.script_file ?? null)
+      : null;
     const script = {
       uuid: row.uuid,
       metadata: {
-        title: row.title,
-        description: row.description ?? '',
-        totalNodes: Number(row.total_nodes ?? 0),
-        theme: row.theme ?? '',
-        difficulty: row.difficulty ?? '',
-        requiredItems: this.parseStringList(row.required_items),
-        requiredKnowledge: this.parseStringList(row.required_knowledge),
+        title: scriptMetadata?.title || row.title,
+        description: scriptMetadata?.description || row.description || '',
+        totalNodes: Number(scriptMetadata?.total_events ?? row.total_nodes ?? 0),
+        totalEvents: Number(scriptMetadata?.total_events ?? row.total_nodes ?? 0),
+        theme: scriptMetadata?.theme || row.theme || '',
+        difficulty: scriptMetadata?.difficulty || row.difficulty || '',
+        requiredItems:
+          scriptMetadata?.required_items ?? this.parseStringList(row.required_items),
+        requiredKnowledge:
+          scriptMetadata?.required_knowledge ??
+          this.parseStringList(row.required_knowledge),
+        storyCore: scriptMetadata?.story_core ?? '',
       },
       createTime: this.normalizeTimestamp(row.createTime),
       updateTime: this.normalizeTimestamp(row.updateTime),
@@ -132,6 +155,30 @@ export class ScriptsService implements OnModuleInit {
       .split(',')
       .map((item) => item.trim())
       .filter(Boolean);
+  }
+
+  private parseScriptFileMetadata(raw: string | null) {
+    if (!raw) {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(raw) as {
+        metadata?: {
+          title?: string;
+          description?: string;
+          total_events?: number;
+          theme?: string;
+          difficulty?: string;
+          required_items?: string[];
+          required_knowledge?: string[];
+          story_core?: string;
+        };
+      };
+      return parsed.metadata ?? null;
+    } catch {
+      return null;
+    }
   }
 
   private normalizeTimestamp(value: number | bigint | null) {

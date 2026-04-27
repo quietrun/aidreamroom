@@ -693,10 +693,10 @@ export function usePlaySession({ gameId, socketUrl }) {
       message.info('正在等待艾达返回，请稍后');
       return false;
     }
-    if (remainTime !== '无限' && Number(remainTime) === 0) {
-      message.info('该模型当前已无使用次数，请明日继续');
-      return false;
-    }
+    // if (remainTime !== '无限' && Number(remainTime) === 0) {
+    //   message.info('该模型当前已无使用次数，请明日继续');
+    //   return false;
+    // }
     if (!socketRef.current || socketRef.current.readyState !== 1) {
       logPlaySocket('warn', 'send-skipped', {
         gameId,

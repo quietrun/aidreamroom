@@ -2,10 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { Spin, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 
+import loadingVideo from '@/loading.mp4';
 import '../../styles/index.scss';
+import { LoadingVideoOverlay } from '../../components/common/LoadingVideoOverlay';
 import { HelpDialog } from '../../components/common/HelpDialog';
 import { helpDialogConfig, images, firstLogin } from '../../constant';
 import { getEquipmentSlotLabel, getItemTypeLabel } from '../../constant/item';
+import { useLoadingVideoTransition } from '../../hooks/useLoadingVideoTransition';
 import { API } from '../../utils/API';
 import { ensureWarehouseProfile } from '../../utils/session';
 
@@ -398,6 +401,7 @@ export function PlaySelectPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [scriptLoading, setScriptLoading] = useState(false);
+  const [starting, setStarting] = useState(false);
   const [script, setScript] = useState(null);
   const [warehouseProfile, setWarehouseProfile] = useState(null);
   const [showHelp, setShowHelp] = useState(
@@ -406,6 +410,15 @@ export function PlaySelectPage() {
   const [warehouseCategory, setWarehouseCategory] = useState('weapon');
   const [selectedLoadoutKeys, setSelectedLoadoutKeys] = useState([]);
   const [selectedEquipmentIds, setSelectedEquipmentIds] = useState([]);
+  const {
+    videoRef,
+    transitionVisible,
+    transitionCompleted,
+    startTransition,
+    cancelTransition,
+    handleVideoEnded,
+    handleVideoError,
+  } = useLoadingVideoTransition(loadingVideo);
 
   const refreshRandomScript = async () => {
     try {
@@ -613,6 +626,10 @@ export function PlaySelectPage() {
   };
 
   const handleStart = async () => {
+    if (starting) {
+      return;
+    }
+
     if (!script?.uuid) {
       message.info('当前没有可用剧本');
       return;
@@ -629,6 +646,9 @@ export function PlaySelectPage() {
       ),
     );
 
+    setStarting(true);
+    const transitionPromise = startTransition();
+
     try {
       const response = await API.PLAY_CREATE({
         script_id: script.uuid,
@@ -637,14 +657,19 @@ export function PlaySelectPage() {
       });
 
       if (response?.result !== 0 || !response?.info?.uuid) {
+        cancelTransition();
         message.error(response?.message || '开始失败');
         return;
       }
 
+      await transitionPromise;
       navigate(`/play/main/${response.info.uuid}`, { replace: true });
     } catch (error) {
       console.error(error);
+      cancelTransition();
       message.error('开始失败');
+    } finally {
+      setStarting(false);
     }
   };
 
@@ -692,7 +717,7 @@ export function PlaySelectPage() {
               <ActionButton
                 label={scriptLoading ? '刷新中...' : '换一个随机剧本'}
                 onClick={refreshRandomScript}
-                disabled={scriptLoading}
+                disabled={scriptLoading || starting}
                 tone="amber"
               />
               <img
@@ -1041,12 +1066,25 @@ export function PlaySelectPage() {
               gap: '1rem',
             }}
           >
-            <ActionButton label="开始" onClick={handleStart} disabled={!script?.uuid} />
+            <ActionButton
+              label={starting ? '启动中...' : '开始'}
+              onClick={handleStart}
+              disabled={!script?.uuid || starting}
+            />
           </div>
         </div>
 
         <img alt="eng-logo" src={images.eng_logo} className="login-eng-logo" />
       </div>
+
+      <LoadingVideoOverlay
+        src={loadingVideo}
+        visible={transitionVisible}
+        completed={transitionCompleted}
+        videoRef={videoRef}
+        onEnded={handleVideoEnded}
+        onError={handleVideoError}
+      />
 
       {showHelp ? (
         <HelpDialog

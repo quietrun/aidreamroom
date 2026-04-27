@@ -24,6 +24,24 @@ import {
   RuleResult,
   ValueMap,
 } from './play-runtime.types';
+import {
+  applyEventRuleResult,
+  buildEventClientSnapshot,
+  buildEventOpeningFallbackMessages,
+  buildEventOpeningPrompt,
+  buildEventNarrationPrompt,
+  buildEventWelcomeMessages,
+  createInitialEventGameState,
+  executeEventRule,
+  isEventDrivenBundle,
+} from './play-runtime.event.util';
+import {
+  stringifyPromptPayload,
+  summarizeRecentEvents,
+  summarizeRecentMessages,
+  summarizeRuleResultForPrompt,
+  trimPromptText,
+} from './play-runtime.prompt.util';
 
 const MOVE_KEYWORDS = ['去', '前往', '移动', '走', '进入', '前进', '离开', '到'];
 const TALK_KEYWORDS = ['问', '询问', '交谈', '聊天', '搭话', '告诉', '说', '问问'];
@@ -200,6 +218,83 @@ export function getDisplayNpcName(bundle: PlayScriptBundle, npcId: string) {
   return bundle.npcsById[npcId]?.name ?? npcId;
 }
 
+function getInventoryCount(inventory: Record<string, number>, itemId: string) {
+  return Math.max(0, Number(inventory[itemId] ?? 0));
+}
+
+function isItemStackable(bundle: PlayScriptBundle, itemId: string) {
+  return bundle.itemsById[itemId]?.stackable !== false;
+}
+
+function addInventoryItem(
+  inventory: Record<string, number>,
+  bundle: PlayScriptBundle,
+  itemId: string,
+  count = 1,
+) {
+  const normalizedItemId = String(itemId ?? '').trim();
+  const normalizedCount = Math.max(0, Math.trunc(Number(count ?? 0)));
+  if (!normalizedItemId || normalizedCount <= 0) {
+    return 0;
+  }
+
+  const currentCount = getInventoryCount(inventory, normalizedItemId);
+  if (!isItemStackable(bundle, normalizedItemId)) {
+    if (currentCount > 0) {
+      return 0;
+    }
+    inventory[normalizedItemId] = 1;
+    return 1;
+  }
+
+  inventory[normalizedItemId] = currentCount + normalizedCount;
+  return normalizedCount;
+}
+
+function removeInventoryItem(
+  inventory: Record<string, number>,
+  itemId: string,
+  count = 1,
+) {
+  const normalizedItemId = String(itemId ?? '').trim();
+  const normalizedCount = Math.max(0, Math.trunc(Number(count ?? 0)));
+  if (!normalizedItemId || normalizedCount <= 0) {
+    return 0;
+  }
+
+  const currentCount = getInventoryCount(inventory, normalizedItemId);
+  if (currentCount <= 0) {
+    return 0;
+  }
+
+  const removedCount = Math.min(currentCount, normalizedCount);
+  const nextCount = currentCount - removedCount;
+  if (nextCount > 0) {
+    inventory[normalizedItemId] = nextCount;
+  } else {
+    delete inventory[normalizedItemId];
+  }
+
+  return removedCount;
+}
+
+function normalizeInventory(
+  inventory: Record<string, number>,
+  bundle: PlayScriptBundle,
+) {
+  for (const [itemId, rawCount] of Object.entries({ ...inventory })) {
+    const count = Math.max(0, Math.trunc(Number(rawCount ?? 0)));
+    if (count <= 0) {
+      delete inventory[itemId];
+      continue;
+    }
+
+    inventory[itemId] = isItemStackable(bundle, itemId) ? count : 1;
+  }
+
+  return inventory;
+}
+
 export function evaluateCondition(
   condition: RawCondition | undefined,
   state: PlayGameState,
@@ -311,6 +406,7 @@ export function parseScriptBundle(record: PlayScriptRecord): PlayScriptBundle {
   const scriptFile = safeParseJson<RawScriptFile>(record.scriptFile, {
     metadata: {},
     nodes: [],
+    events: [],
   });
 
   const locationsById = Object.fromEntries(
@@ -325,6 +421,9 @@ export function parseScriptBundle(record: PlayScriptRecord): PlayScriptBundle {
   const itemsById = Object.fromEntries(
     (itemFile.objects ?? []).map((item) => [item.item_id, item]),
   );
+  const eventsById = Object.fromEntries(
+    (scriptFile.events ?? []).map((event) => [event.event_id, event]),
+  );
 
   const nodesByLocationId: Record<string, RawScriptNode[]> = {};
   for (const node of scriptFile.nodes ?? []) {
@@ -335,6 +434,33 @@ export function parseScriptBundle(record: PlayScriptRecord): PlayScriptBundle {
     nodesByLocationId[locationId] = nodesByLocationId[locationId] ?? [];
     nodesByLocationId[locationId].push(node);
   }
+
+  const eventsByLocationId: PlayScriptBundle['eventsByLocationId'] = {};
+  const globalEvents = [] as PlayScriptBundle['globalEvents'];
+  for (const event of scriptFile.events ?? []) {
+    const bindingLocationIds = [
+      event.location_binding?.location_id ?? undefined,
+      ...(event.location_binding?.location_ids ?? []),
+    ]
+      .map((item) => String(item ?? '').trim())
+      .filter(Boolean);
+
+    if (bindingLocationIds.length === 0 || String(event.location_binding?.scope ?? '').toLowerCase() === 'global') {
+      globalEvents.push(event);
+    }
+
+    for (const locationId of bindingLocationIds) {
+      eventsByLocationId[locationId] = eventsByLocationId[locationId] ?? [];
+      eventsByLocationId[locationId].push(event);
+    }
+  }
+
+  const connectionsById = Object.fromEntries(
+    (map.locations ?? [])
+      .flatMap((location) => location.connections ?? [])
+      .map((connection) => [String(connection.connection_id ?? ''), connection])
+      .filter(([connectionId]) => Boolean(connectionId)),
+  );
 
   const locationAliases = buildAliasLookup(
     (map.locations ?? []).map((location) => ({
@@ -357,6 +483,8 @@ export function parseScriptBundle(record: PlayScriptRecord): PlayScriptBundle {
 
   return {
     scriptId: record.uuid,
+    mode: (scriptFile.events ?? []).length > 0 ? 'event' : 'legacy_node',
+    initialEventId: String(scriptFile.metadata?.initial_event_id ?? '').trim() || undefined,
     map,
     npcFile,
     itemFile,
@@ -364,6 +492,10 @@ export function parseScriptBundle(record: PlayScriptRecord): PlayScriptBundle {
     locationsById,
     nodesById,
     nodesByLocationId,
+    eventsById,
+    eventsByLocationId,
+    globalEvents,
+    connectionsById,
     npcsById,
     itemsById,
     locationAliases,
@@ -383,7 +515,7 @@ export function extractKnownInventory(
       if (!normalized.includes(normalizeText(item.name))) {
         continue;
       }
-      inventory[itemId] = (inventory[itemId] ?? 0) + 1;
+      addInventoryItem(inventory, bundle, itemId);
     }
   }
   return inventory;
@@ -394,6 +526,10 @@ export function createInitialGameState(
   bundle: PlayScriptBundle,
   loadoutLabels: string[] = [],
 ): PlayGameState {
+  if (isEventDrivenBundle(bundle)) {
+    return createInitialEventGameState(sessionId, bundle, loadoutLabels);
+  }
+
   const startLocationId =
     bundle.map.start_location_id ??
     bundle.map.locations?.[0]?.location_id ??
@@ -423,9 +559,20 @@ export function createInitialGameState(
     sessionId,
     scriptId: bundle.scriptId,
     currentNodeId: startNode.node_id,
+    currentEventId: undefined,
     currentLocationId: String(startNode.location_id ?? startLocationId),
     visitedNodeIds: startNode.node_id ? [startNode.node_id] : [],
     visitedLocationIds: startLocationId ? [startLocationId] : [],
+    discoveredLocationIds: startLocationId ? [startLocationId] : [],
+    unlockedLocationIds: startLocationId ? [startLocationId] : [],
+    unlockedConnectionIds: [],
+    blockedConnectionIds: [],
+    completedEventIds: [],
+    knowledge: [],
+    attributes: {},
+    worldState: {},
+    timeUnit: 'turn',
+    timeValue: 0,
     inventory,
     loadoutLabels,
     flags: {},
@@ -810,6 +957,7 @@ function matchOutcome(
 function applyOutcomeToResult(
   result: RuleResult,
   outcome: RawOutcome | undefined,
+  state: PlayGameState,
   bundle: PlayScriptBundle,
   currentNode: RawScriptNode,
   currentLocation: RawLocation,
@@ -819,8 +967,12 @@ function applyOutcomeToResult(
   }
 
   const inventoryAdd: Record<string, number> = {};
+  const projectedInventory = { ...state.inventory };
   for (const itemId of outcome.items_gained ?? []) {
-    inventoryAdd[itemId] = (inventoryAdd[itemId] ?? 0) + 1;
+    const addedCount = addInventoryItem(projectedInventory, bundle, itemId);
+    if (addedCount > 0) {
+      inventoryAdd[itemId] = (inventoryAdd[itemId] ?? 0) + addedCount;
+    }
   }
   const nextNode =
     outcome.next_node && outcome.next_node !== 'node_end'
@@ -892,7 +1044,7 @@ function applyOutcomeToResult(
     );
   }
 
-  for (const itemId of outcome.items_gained ?? []) {
+  for (const itemId of Object.keys(inventoryAdd)) {
     result.actionResults.push(
       buildActionResult('item_gain', true, `获得 ${getDisplayItemName(bundle, itemId)}`, {
         itemId,
@@ -977,6 +1129,10 @@ export function executeRule(
   bundle: PlayScriptBundle,
   character: PlayCharacterProfile,
 ): RuleResult {
+  if (isEventDrivenBundle(bundle)) {
+    return executeEventRule(playerInput, intent, state, bundle, character);
+  }
+
   const currentNode = getCurrentNode(bundle, state);
   const currentLocation = getCurrentLocation(bundle, state);
   const presentNpcIds = [...new Set(currentLocation.npcs ?? [])];
@@ -1056,7 +1212,7 @@ export function executeRule(
           },
         ),
       );
-      applyOutcomeToResult(baseResult, outcome, bundle, currentNode, currentLocation);
+      applyOutcomeToResult(baseResult, outcome, state, bundle, currentNode, currentLocation);
       break;
     }
     case 'talk_to_npc': {
@@ -1085,7 +1241,7 @@ export function executeRule(
           { npcId: targetNpcId },
         ),
       );
-      applyOutcomeToResult(baseResult, outcome, bundle, currentNode, currentLocation);
+      applyOutcomeToResult(baseResult, outcome, state, bundle, currentNode, currentLocation);
       break;
     }
     case 'use_item': {
@@ -1135,7 +1291,7 @@ export function executeRule(
         );
       }
 
-      applyOutcomeToResult(baseResult, outcome, bundle, currentNode, currentLocation);
+      applyOutcomeToResult(baseResult, outcome, state, bundle, currentNode, currentLocation);
       break;
     }
     case 'inspect':
@@ -1196,7 +1352,7 @@ export function executeRule(
         );
       }
 
-      applyOutcomeToResult(baseResult, outcome, bundle, currentNode, currentLocation);
+      applyOutcomeToResult(baseResult, outcome, state, bundle, currentNode, currentLocation);
       break;
     }
   }
@@ -1213,6 +1369,10 @@ export function applyRuleResult(
   ruleResult: RuleResult,
   bundle: PlayScriptBundle,
 ): PlayGameState {
+  if (isEventDrivenBundle(bundle)) {
+    return applyEventRuleResult(state, ruleResult, bundle);
+  }
+
   const nextState: PlayGameState = {
     ...state,
     inventory: { ...state.inventory },
@@ -1222,20 +1382,24 @@ export function applyRuleResult(
     currentObjectives: [...state.currentObjectives],
     visitedNodeIds: [...state.visitedNodeIds],
     visitedLocationIds: [...state.visitedLocationIds],
+    discoveredLocationIds: [...state.discoveredLocationIds],
+    unlockedLocationIds: [...state.unlockedLocationIds],
+    unlockedConnectionIds: [...state.unlockedConnectionIds],
+    blockedConnectionIds: [...state.blockedConnectionIds],
+    completedEventIds: [...state.completedEventIds],
+    knowledge: [...state.knowledge],
+    attributes: { ...state.attributes },
+    worldState: { ...state.worldState },
     updatedAt: Date.now(),
   };
+  normalizeInventory(nextState.inventory, bundle);
 
   for (const [itemId, count] of Object.entries(ruleResult.stateChanges.inventoryAdd ?? {})) {
-    nextState.inventory[itemId] = (nextState.inventory[itemId] ?? 0) + count;
+    addInventoryItem(nextState.inventory, bundle, itemId, count);
   }
 
   for (const [itemId, count] of Object.entries(ruleResult.stateChanges.inventoryRemove ?? {})) {
-    const nextCount = (nextState.inventory[itemId] ?? 0) - count;
-    if (nextCount > 0) {
-      nextState.inventory[itemId] = nextCount;
-    } else {
-      delete nextState.inventory[itemId];
-    }
+    removeInventoryItem(nextState.inventory, itemId, count);
   }
 
   Object.assign(nextState.flags, ruleResult.stateChanges.flags ?? {});
@@ -1339,6 +1503,23 @@ export function buildNarrationPrompt(params: {
   character: PlayCharacterProfile;
   recentMessages?: PlayMessageRecord[];
 }) {
+  if (isEventDrivenBundle(params.bundle)) {
+    return buildEventNarrationPrompt({
+      bundle: params.bundle,
+      previousState: params.previousState,
+      state: params.state,
+      intent: params.intent,
+      playerInput: params.playerInput,
+      character: params.character,
+      recentMessages: params.recentMessages,
+      ruleResult: params.ruleResult,
+      inputMode: params.inputAnalysis.mode,
+      spokenText: params.inputAnalysis.spokenText,
+      actionText: params.inputAnalysis.actionText,
+      thoughtText: params.inputAnalysis.thoughtText,
+    });
+  }
+
   const {
     bundle,
     previousState,
@@ -1366,96 +1547,100 @@ export function buildNarrationPrompt(params: {
     }));
 
   const inventory = Object.entries(state.inventory).map(([itemId, count]) => ({
-    itemId,
     name: getDisplayItemName(bundle, itemId),
     count,
   }));
 
-  const authoritativeState = {
-    sessionId: state.sessionId,
-    scriptId: state.scriptId,
-    currentNodeId: state.currentNodeId,
-    currentLocationId: state.currentLocationId,
-    currentLocationName: currentLocation.name,
+  const compactState = {
+    scene: {
+      location: currentLocation.name,
+      node: currentNode.title,
+      description: trimPromptText(
+        currentNode.description ?? currentLocation.description ?? '',
+        220,
+      ),
+    },
     status: state.status,
-    inventory,
-    loadoutLabels: state.loadoutLabels,
-    objectives: state.currentObjectives,
-    allowedNextNodes: ruleResult.allowedNextNodes,
+    inventory: inventory.slice(0, 6),
+    objectives: state.currentObjectives.slice(0, 4),
+    moves: ruleResult.allowedNextNodes.slice(0, 4).map((item) => item.trigger),
+    character: {
+      name: character.name,
+      info: {
+        gender: String(character.info.gender ?? '').trim(),
+        age: character.info.age,
+      },
+      metrics: Object.fromEntries(
+        Object.entries(character.metrics ?? {}).slice(0, 6),
+      ),
+    },
   };
   const responseNpcIds = new Set(currentLocation.npcs ?? []);
 
-  const flavorContext = {
-    sceneBeforeAction: {
-      nodeTitle: previousNode.title,
-      locationName: previousLocation.name,
-      locationDescription: previousLocation.description ?? '',
+  const compactContext = {
+    before: {
+      location: previousLocation.name,
+      node: previousNode.title,
+      description: trimPromptText(
+        previousNode.description ?? previousLocation.description ?? '',
+        180,
+      ),
     },
-    sceneAfterAction: {
-      nodeTitle: currentNode.title,
-      locationName: currentLocation.name,
-      locationDescription: currentLocation.description ?? '',
-    },
-    scene: {
-      title: currentNode.title,
-      description: currentNode.description ?? '',
-      locationDescription: currentLocation.description ?? '',
-      events: currentLocation.events ?? [],
-    },
-    presentNpcs,
-    recentEvents: state.recentEvents.slice(-6),
-    narrativeSummary: state.narrativeSummary,
-    character: {
-      name: character.name,
-      info: character.info,
-    },
-    recentMessages: recentMessages.slice(-8).map((message) => ({
-      character: message.character,
-      speaker: message.speaker ?? '',
-      mode: message.mode ?? '',
-      message: message.message,
-    })),
-    continuity: {
-      currentScene: `${currentNode.title} / ${currentLocation.name}`,
-      currentSceneDescription:
+    after: {
+      location: currentLocation.name,
+      node: currentNode.title,
+      description: trimPromptText(
         currentNode.description ?? currentLocation.description ?? '',
-      lastEvents: state.recentEvents.slice(-4).map((event) => event.summary),
-      latestAssistantMessages: recentMessages
-        .filter((message) => message.character !== 'me')
-        .slice(-4)
-        .map((message) => ({
-          speaker: message.speaker ?? message.character,
-          mode: message.mode ?? '',
-          message: message.message,
-        })),
+        180,
+      ),
     },
+    npcs: presentNpcs.map((npc) => ({
+      npcId: npc.npcId,
+      name: npc.name,
+      hostility: npc.hostility,
+      personality: trimPromptText(npc.personality, 60),
+    })),
+    recent: {
+      events: summarizeRecentEvents(state.recentEvents, 4),
+      messages: summarizeRecentMessages(recentMessages, 4),
+    },
+    summary: trimPromptText(state.narrativeSummary, 180),
     responseNpcIds: [...responseNpcIds],
   };
 
+  const compactInput = {
+    mode: inputAnalysis.mode,
+    text: trimPromptText(
+      inputAnalysis.spokenText ??
+        inputAnalysis.actionText ??
+        inputAnalysis.thoughtText ??
+        playerInput,
+      160,
+    ),
+  };
+
   return [
-    '你是受控的文字 RPG 叙事引擎。',
-    '你要像连续剧分镜一样承接上一轮，当前输出发生在上一条 recentMessages 之后的紧接下一瞬间，不能跳戏、不能重开场、不能忽然改口。',
-    '你只能基于 authoritative_state、flavor_context、rule_result 输出，不得创造不存在的地点、物品、NPC、结局或状态变化。',
-    '要先看清 sceneBeforeAction 和 sceneAfterAction：如果场景没有变化，就留在原地继续承接；如果场景变化了，必须先用 narration 交代清楚是如何从前一场景转到后一场景的。',
-    '先阅读 flavor_context.continuity、recentEvents、recentMessages，再决定这一轮如何接续；如果上一轮已经说过的信息没有变化，不要重复设定或推翻它。',
-    '必须保证地点、在场 NPC、已获得物品、剧情进度、人物关系前后一致；若 rule_result 没有产生新状态变化，就不要编造新的状态变化。',
-    '如果 rule_result.success 为 false，需要写出合理失败反馈，但不能强行推进剧情。',
-    '输出只面向玩家阅读的故事内容：narration 写旁白，npc_dialogues 写 NPC 台词。',
-    '必须优先遵守 player_input_analysis，而且 mode 完全以用户前端选择为准，不要根据句子里的关键词自行改判模式。mode=dialogue 时，玩家这回合是在对外说话，重点回应 spokenText；mode=action 时，重点写动作结果；mode=thought 时，这是角色内心想法或试探，不要让 NPC 把 thoughtText 当成玩家说出口的话。',
-    '玩家说的话绝不能出现在 npc_dialogues 中，也不要把玩家原话复述成 narrator 的长段转述；thought 模式下也不要让 NPC 直接听见玩家心声。',
-    'npc_dialogues 只能包含 flavor_context.responseNpcIds 中的 NPC 直接发言；如果没有 NPC 合理回应，就返回空数组。',
-    'narration 只描述环境变化、动作结果、气氛和 NPC 的非语言反应，不要把 narration 写成对白。',
-    '如果输入是 dialogue，就优先生成贴着上下文的回应，而不是另起炉灶讲新的事件；如果输入是 thought，可以给出更细微的观察、回忆、判断或心理压力，但仍必须和当前场景直接相关。',
-    '不得在面向玩家的 narration、npc_dialogues、feedback、ui_hints 中输出内部 ID，例如 loc_001、node_001、npc_001、item_001；地点、NPC、物品必须使用 name 字段的中文展示名。',
-    '不要在输出中展示 roll 点、属性名、点数、目标数值、检定结果、规则执行摘要或“当前场景”这类系统信息。',
+    '你是受控文字RPG叙事引擎，只能续写当前这一瞬间。',
+    '只根据 state、ctx、rule 输出，不得新增不存在的设定、物品、人物或状态。',
+    '若 before 与 after 场景不同，先交代转场；若相同，就原地续接。',
+    '每回合只写本回合新增的信息、变化、态度或线索；ctx.recent、ctx.summary、before 里已有且本回合未变化的内容不要重复解释。',
+    'dialogue 只回应玩家说出口的话；action 只写动作后果；thought 不能被NPC直接听见。',
+    '旁白优先写动作结果和新变化，不要复述背景、任务目标或玩家刚做过的动作；控制在2到4句短句内。',
+    'NPC台词优先给新线索、新态度或新决定；不要重复地点描述、已知事实和任务目标；每个NPC尽量只说1句短句。',
+    'npc_dialogues 只能由 responseNpcIds 内的NPC发言；没有合适回应就返回空数组。',
+    '失败只给自然失败反馈，不强推剧情；不要暴露内部ID、检定数值、规则术语。',
     '请严格返回 JSON，不要使用 Markdown 代码块。',
-    'JSON Schema: {"narration":"string","npc_dialogues":[{"npcId":"string","text":"string"}],"feedback":"string","ui_hints":["string"]}',
-    `authoritative_state=${JSON.stringify(authoritativeState)}`,
-    `flavor_context=${JSON.stringify(flavorContext)}`,
-    `parsed_intent=${JSON.stringify(intent)}`,
-    `player_input_analysis=${JSON.stringify(inputAnalysis)}`,
-    `rule_result=${JSON.stringify(ruleResult)}`,
-    `player_input=${JSON.stringify(playerInput)}`,
+    'schema={"narration":"string","npc_dialogues":[{"npcId":"string","text":"string"}],"feedback":"string","ui_hints":["string"]}',
+    stringifyPromptPayload('state', compactState),
+    stringifyPromptPayload('ctx', compactContext),
+    stringifyPromptPayload('intent', {
+      intent: intent.intent,
+      targetLocationId: intent.targetLocationId,
+      targetNpcId: intent.targetNpcId,
+      targetItemId: intent.targetItemId,
+    }),
+    stringifyPromptPayload('input', compactInput),
+    stringifyPromptPayload('rule', summarizeRuleResultForPrompt(ruleResult)),
   ].join('\n');
 }
 
@@ -1491,6 +1676,10 @@ export function buildClientSnapshot(
   state: PlayGameState,
   character: PlayCharacterProfile,
 ): PlayClientSnapshot {
+  if (isEventDrivenBundle(bundle)) {
+    return buildEventClientSnapshot(bundle, state, character);
+  }
+
   const currentNode = getCurrentNode(bundle, state);
   const currentLocation = getCurrentLocation(bundle, state);
   const availableMoveLabels = listAvailableConnections(bundle, state, character).map(
@@ -1498,13 +1687,14 @@ export function buildClientSnapshot(
       bundle.locationsById[connection.target_location_id]?.name ??
       connection.target_location_id,
   );
-  const inventoryLabels = Object.entries(state.inventory).map(
+  const inventory = normalizeInventory({ ...state.inventory }, bundle);
+  const inventoryLabels = Object.entries(inventory).map(
     ([itemId, count]) =>
       count > 1
         ? `${getDisplayItemName(bundle, itemId)} x${count}`
         : getDisplayItemName(bundle, itemId),
   );
-  const inventoryItems = Object.entries(state.inventory).map(([itemId, count]) => ({
+  const inventoryItems = Object.entries(inventory).map(([itemId, count]) => ({
     itemId,
     name: getDisplayItemName(bundle, itemId),
     count,
@@ -1557,6 +1747,10 @@ export function buildWelcomeMessages(
   bundle: PlayScriptBundle,
   state: PlayGameState,
 ): PlayMessageRecord[] {
+  if (isEventDrivenBundle(bundle)) {
+    return buildEventWelcomeMessages(bundle, state);
+  }
+
   const currentNode = getCurrentNode(bundle, state);
   const currentLocation = getCurrentLocation(bundle, state);
 
@@ -1570,6 +1764,98 @@ export function buildWelcomeMessages(
       func: 'chat',
       message: `${currentNode.title || currentLocation.name}：${currentNode.description ?? currentLocation.description ?? '你已进入故事。'}`,
       character: 'system',
+    },
+  ];
+}
+
+export function buildOpeningPrompt(
+  bundle: PlayScriptBundle,
+  state: PlayGameState,
+  character: PlayCharacterProfile,
+) {
+  if (isEventDrivenBundle(bundle)) {
+    return buildEventOpeningPrompt(bundle, state, character);
+  }
+
+  const currentNode = getCurrentNode(bundle, state);
+  const currentLocation = getCurrentLocation(bundle, state);
+  const presentNpcs = (currentLocation.npcs ?? [])
+    .map((npcId) => bundle.npcsById[npcId])
+    .filter(Boolean)
+    .map((npc) => ({
+      npcId: npc.npc_id,
+      name: npc.name,
+      hostility: npc.hostility ?? 'neutral',
+      personality: trimPromptText(npc.personality ?? '', 60),
+      description: trimPromptText(npc.description ?? '', 80),
+    }));
+  const inventory = normalizeInventory({ ...state.inventory }, bundle);
+
+  return [
+    '你是文字RPG的开场镜头生成器。',
+    '玩家刚进入剧本，还没有行动。请补上一段开场现场感描写。',
+    '只写当前所在地的即时感受、环境动静、NPC此刻的动作或简短台词，不要复述系统欢迎语、剧本标题、任务清单或大段背景。',
+    '旁白控制在2到4句短句；NPC台词0到2句，每个NPC最多一句；不要推进尚未发生的剧情，不要暴露内部ID或规则信息。',
+    '请严格返回 JSON，不要使用 Markdown 代码块。',
+    'schema={"narration":"string","npc_dialogues":[{"npcId":"string","text":"string"}],"feedback":"string","ui_hints":["string"]}',
+    stringifyPromptPayload('scene', {
+      location: currentLocation.name,
+      title: currentNode.title || currentLocation.name,
+      description: trimPromptText(
+        currentNode.description ?? currentLocation.description ?? '',
+        220,
+      ),
+    }),
+    stringifyPromptPayload('npcs', presentNpcs.slice(0, 4)),
+    stringifyPromptPayload('state', {
+      inventory: Object.entries(inventory)
+        .slice(0, 6)
+        .map(([itemId, count]) => ({
+          name: getDisplayItemName(bundle, itemId),
+          count,
+        })),
+      objectives: buildObjectives(bundle, state).slice(0, 4),
+      character: {
+        name: character.name,
+        info: {
+          gender: String(character.info.gender ?? '').trim(),
+          age: character.info.age,
+        },
+      },
+    }),
+  ].join('\n');
+}
+
+export function buildOpeningFallbackMessages(
+  bundle: PlayScriptBundle,
+  state: PlayGameState,
+): PlayMessageRecord[] {
+  if (isEventDrivenBundle(bundle)) {
+    return buildEventOpeningFallbackMessages(bundle, state);
+  }
+
+  const currentNode = getCurrentNode(bundle, state);
+  const currentLocation = getCurrentLocation(bundle, state);
+  const npcNames = (currentLocation.npcs ?? [])
+    .map((npcId) => bundle.npcsById[npcId]?.name ?? npcId)
+    .filter(Boolean)
+    .slice(0, 2);
+  const lead =
+    trimPromptText(
+      currentNode.description ?? currentLocation.description ?? '',
+      120,
+    ) || `你已经来到 ${currentLocation.name}。`;
+  const npcHint = npcNames.length > 0
+    ? `附近还能看见 ${npcNames.join('、')}，他们似乎也注意到了你的到来。`
+    : '';
+
+  return [
+    {
+      func: 'chat',
+      message: [lead, npcHint].filter(Boolean).join(' '),
+      character: 'narrator',
+      speaker: '艾达 AIDR（叙述者）',
+      mode: 'narration',
     },
   ];
 }

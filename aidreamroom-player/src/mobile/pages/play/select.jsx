@@ -2,14 +2,27 @@ import { useEffect, useState } from 'react';
 import { message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 
+import loadingVideo from '@/loading.mp4';
 import '../../styles/index.scss';
+import { LoadingVideoOverlay } from '../../../components/common/LoadingVideoOverlay';
 import { images } from '../../../constant';
+import { useLoadingVideoTransition } from '../../../hooks/useLoadingVideoTransition';
 import { API } from '../../../utils/API';
 
 export function MobilePlaySelectPage() {
   const navigate = useNavigate();
   const [modelList, setModelList] = useState([]);
   const [script, setScript] = useState(null);
+  const [startingModuleId, setStartingModuleId] = useState(null);
+  const {
+    videoRef,
+    transitionVisible,
+    transitionCompleted,
+    startTransition,
+    cancelTransition,
+    handleVideoEnded,
+    handleVideoError,
+  } = useLoadingVideoTransition(loadingVideo);
 
   useEffect(() => {
     let mounted = true;
@@ -38,22 +51,39 @@ export function MobilePlaySelectPage() {
   }, []);
 
   const goPlay = async (selectedModuleId) => {
+    if (startingModuleId) {
+      return;
+    }
+
     if (!script?.uuid) {
       message.info('当前没有可用剧本');
       return;
     }
 
-    const { info, message: errorMessage } = await API.PLAY_CREATE({
-      script_id: script.uuid,
-      model_id: selectedModuleId,
-    });
+    setStartingModuleId(selectedModuleId);
+    const transitionPromise = startTransition();
 
-    if (!info?.uuid) {
-      message.error(errorMessage || '开始失败');
-      return;
+    try {
+      const { info, message: errorMessage } = await API.PLAY_CREATE({
+        script_id: script.uuid,
+        model_id: selectedModuleId,
+      });
+
+      if (!info?.uuid) {
+        cancelTransition();
+        message.error(errorMessage || '开始失败');
+        return;
+      }
+
+      await transitionPromise;
+      navigate(`/mobile/play/main/${info.uuid}`, { replace: true });
+    } catch (error) {
+      console.error(error);
+      cancelTransition();
+      message.error('开始失败');
+    } finally {
+      setStartingModuleId(null);
     }
-
-    navigate(`/mobile/play/main/${info.uuid}`, { replace: true });
   };
 
   return (
@@ -125,7 +155,6 @@ export function MobilePlaySelectPage() {
                     marginBottom: '0.969rem',
                     border: '0.068rem',
                     borderRadius: '0.577rem',
-                    opacity: '0.84',
                     marginLeft: '4.5rem',
                     marginRight: '4.5rem',
                     width: '6.25rem',
@@ -133,13 +162,16 @@ export function MobilePlaySelectPage() {
                     display: 'flex',
                     justifyContent: 'center',
                     alignItems: 'center',
-                    cursor: 'pointer',
+                    cursor: startingModuleId ? 'not-allowed' : 'pointer',
+                    opacity: startingModuleId && startingModuleId !== item.moduleId ? 0.56 : 0.84,
                     background: 'rgb(77,79,76)',
                     color: '#fff',
                   }}
-                  onClick={() => goPlay(item.moduleId)}
+                  onClick={startingModuleId ? undefined : () => goPlay(item.moduleId)}
                 >
-                  <span style={{ color: '#FFF', fontSize: '0.7rem' }}>{item.showName}</span>
+                  <span style={{ color: '#FFF', fontSize: '0.7rem' }}>
+                    {startingModuleId === item.moduleId ? '启动中...' : item.showName}
+                  </span>
                 </div>
               ))}
               <div
@@ -166,6 +198,15 @@ export function MobilePlaySelectPage() {
           </div>
         </div>
       </div>
+      <LoadingVideoOverlay
+        src={loadingVideo}
+        visible={transitionVisible}
+        completed={transitionCompleted}
+        videoRef={videoRef}
+        onEnded={handleVideoEnded}
+        onError={handleVideoError}
+        mobile
+      />
     </div>
   );
 }
