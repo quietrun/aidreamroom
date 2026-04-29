@@ -1,8 +1,24 @@
 const URLS = {
     'live': ' http://aidr.infinityplanet.world:8300'
 }
-const baseUrl = 'http://localhost:8380/';
+export const API_BASE_URL = 'http://localhost:8380/';
+const baseUrl = API_BASE_URL;
 // const baseUrl = 'http://aidr.infinityplanet.world:8380/';
+
+export function resolveLegacyWsUrl(port = 3300) {
+    const fallbackOrigin =
+        typeof window !== 'undefined' && window.location?.origin
+            ? window.location.origin
+            : 'http://localhost:8380';
+
+    try {
+        const base = new URL(baseUrl, fallbackOrigin);
+        const protocol = base.protocol === 'https:' ? 'wss:' : 'ws:';
+        return `${protocol}//${base.hostname}:${port}/`;
+    } catch {
+        return `ws://localhost:${port}/`;
+    }
+}
 
 export async function GET(url, params = null, headers = {}) {
     let paramsString = '';

@@ -601,7 +601,7 @@ export function MobilePlaySelectPage() {
             </div>
 
             {activeTab === 'script' ? (
-              <section className="mobile-play-select-v2__panel">
+              <section className="mobile-play-select-v2__panel mobile-play-select-v2__panel--script">
                 <div
                   className="mobile-play-select-v2__poster"
                   style={{
@@ -648,7 +648,7 @@ export function MobilePlaySelectPage() {
             ) : null}
 
             {activeTab === 'config' ? (
-              <section className="mobile-play-select-v2__panel">
+              <section className="mobile-play-select-v2__panel mobile-play-select-v2__panel--stack">
                 <div className="mobile-play-select-v2__section">
                   <div className="mobile-play-select-v2__sectionhead">
                     <strong>当前配置</strong>
@@ -675,40 +675,42 @@ export function MobilePlaySelectPage() {
                   </div>
                 </div>
 
-                <div className="mobile-play-select-v2__section">
+                <div className="mobile-play-select-v2__section mobile-play-select-v2__section--fill">
                   <div className="mobile-play-select-v2__sectionhead">
                     <strong>身上装备</strong>
                     <span>不占用 10 个仓库位</span>
                   </div>
-                  {equippedEntries.length ? (
-                    <div className="mobile-play-select-v2__entrylist">
-                      {equippedEntries.map((entry) => (
-                        <EntryCard
-                          key={entry.uuid}
-                          title={entry.displayName}
-                          subtitle={getEquipmentSlotLabel(entry.item?.itemSubType) || '装备'}
-                          description={getEntryDisplayDescription(entry)}
-                          selected={selectedEquipmentIds.includes(entry.uuid)}
-                          onClick={() => toggleEquipment(entry)}
-                          tone="green"
-                          tags={[
-                            getItemTypeLabel(entry.item?.itemType),
-                            getEquipmentSlotLabel(entry.item?.itemSubType),
-                            ...(entry.entryAffixes?.map((item) => item.name) || []).slice(0, 2),
-                          ].filter(Boolean)}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="mobile-play-select-v2__empty">当前没有已装备的道具。</div>
-                  )}
+                  <div className="mobile-play-select-v2__sectionscroll">
+                    {equippedEntries.length ? (
+                      <div className="mobile-play-select-v2__entrylist">
+                        {equippedEntries.map((entry) => (
+                          <EntryCard
+                            key={entry.uuid}
+                            title={entry.displayName}
+                            subtitle={getEquipmentSlotLabel(entry.item?.itemSubType) || '装备'}
+                            description={getEntryDisplayDescription(entry)}
+                            selected={selectedEquipmentIds.includes(entry.uuid)}
+                            onClick={() => toggleEquipment(entry)}
+                            tone="green"
+                            tags={[
+                              getItemTypeLabel(entry.item?.itemType),
+                              getEquipmentSlotLabel(entry.item?.itemSubType),
+                              ...(entry.entryAffixes?.map((item) => item.name) || []).slice(0, 2),
+                            ].filter(Boolean)}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="mobile-play-select-v2__empty">当前没有已装备的道具。</div>
+                    )}
+                  </div>
                 </div>
               </section>
             ) : null}
 
             {activeTab === 'warehouse' ? (
-              <section className="mobile-play-select-v2__panel">
-                <div className="mobile-play-select-v2__section">
+              <section className="mobile-play-select-v2__panel mobile-play-select-v2__panel--stack">
+                <div className="mobile-play-select-v2__section mobile-play-select-v2__section--fill">
                   <div className="mobile-play-select-v2__sectionhead">
                     <strong>仓库内容</strong>
                     <span>最多选择 10 项</span>
@@ -731,56 +733,58 @@ export function MobilePlaySelectPage() {
                     })}
                   </div>
 
-                  {warehouseEntries.length ? (
-                    filteredWarehouseEntries.length ? (
-                      <div className="mobile-play-select-v2__entrylist">
-                        {filteredWarehouseEntries.map((entry) => {
-                          const key = buildWarehouseSelectionKey(entry);
-                          const selected = selectedLoadoutKeys.includes(key);
-                          const disabled =
-                            !selected && selectedLoadoutKeys.length >= MAX_LOADOUT_SELECTION;
+                  <div className="mobile-play-select-v2__sectionscroll">
+                    {warehouseEntries.length ? (
+                      filteredWarehouseEntries.length ? (
+                        <div className="mobile-play-select-v2__entrylist">
+                          {filteredWarehouseEntries.map((entry) => {
+                            const key = buildWarehouseSelectionKey(entry);
+                            const selected = selectedLoadoutKeys.includes(key);
+                            const disabled =
+                              !selected && selectedLoadoutKeys.length >= MAX_LOADOUT_SELECTION;
 
-                          return (
-                            <EntryCard
-                              key={entry.uuid}
-                              title={entry.displayName}
-                              subtitle={
-                                entry.entryType === 'skill_card'
-                                  ? '技能卡'
-                                  : entry.item?.itemType === 'equipment'
-                                    ? getEquipmentSlotLabel(entry.item?.itemSubType) || '装备'
-                                    : getItemTypeLabel(entry.item?.itemType) || '物品'
-                              }
-                              description={getEntryDisplayDescription(entry)}
-                              selected={selected}
-                              disabled={disabled}
-                              onClick={() => toggleLoadout(key)}
-                              tone={
-                                entry.entryType === 'skill_card'
-                                  ? 'violet'
-                                  : entry.item?.itemType === 'weapon'
-                                    ? 'wine'
-                                    : 'blue'
-                              }
-                              tags={[
-                                entry.entryType === 'skill_card'
-                                  ? '技能卡'
-                                  : getItemTypeLabel(entry.item?.itemType),
-                                entry.item?.itemType === 'equipment'
-                                  ? getEquipmentSlotLabel(entry.item?.itemSubType)
-                                  : null,
-                                `数量 ${entry.quantity}`,
-                              ].filter(Boolean)}
-                            />
-                          );
-                        })}
-                      </div>
+                            return (
+                              <EntryCard
+                                key={entry.uuid}
+                                title={entry.displayName}
+                                subtitle={
+                                  entry.entryType === 'skill_card'
+                                    ? '技能卡'
+                                    : entry.item?.itemType === 'equipment'
+                                      ? getEquipmentSlotLabel(entry.item?.itemSubType) || '装备'
+                                      : getItemTypeLabel(entry.item?.itemType) || '物品'
+                                }
+                                description={getEntryDisplayDescription(entry)}
+                                selected={selected}
+                                disabled={disabled}
+                                onClick={() => toggleLoadout(key)}
+                                tone={
+                                  entry.entryType === 'skill_card'
+                                    ? 'violet'
+                                    : entry.item?.itemType === 'weapon'
+                                      ? 'wine'
+                                      : 'blue'
+                                }
+                                tags={[
+                                  entry.entryType === 'skill_card'
+                                    ? '技能卡'
+                                    : getItemTypeLabel(entry.item?.itemType),
+                                  entry.item?.itemType === 'equipment'
+                                    ? getEquipmentSlotLabel(entry.item?.itemSubType)
+                                    : null,
+                                  `数量 ${entry.quantity}`,
+                                ].filter(Boolean)}
+                              />
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="mobile-play-select-v2__empty">当前分类暂无可配置内容。</div>
+                      )
                     ) : (
-                      <div className="mobile-play-select-v2__empty">当前分类暂无可配置内容。</div>
-                    )
-                  ) : (
-                    <div className="mobile-play-select-v2__empty">仓库中暂无可配置内容。</div>
-                  )}
+                      <div className="mobile-play-select-v2__empty">仓库中暂无可配置内容。</div>
+                    )}
+                  </div>
                 </div>
               </section>
             ) : null}

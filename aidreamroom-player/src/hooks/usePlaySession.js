@@ -4,6 +4,9 @@ import { API } from '../utils/API';
 import { images } from '../constant';
 import { localStorageKey } from '../constant/localStorageKey';
 
+const MESSAGE_PLAYBACK_INTERVAL_MS = 2000;
+const RESPONSE_TIMEOUT_MS = 30000;
+
 function parseCharacterInfo(character) {
   if (!character) {
     return null;
@@ -330,8 +333,6 @@ function buildHintPrompt(params) {
   ].join('\n');
 }
 
-const MESSAGE_PLAYBACK_INTERVAL_MS = 2000;
-
 export function usePlaySession({ gameId, socketUrl }) {
   const [plotInfo, setPlotInfo] = useState(null);
   const [characterInfo, setCharacterInfo] = useState(null);
@@ -355,6 +356,7 @@ export function usePlaySession({ gameId, socketUrl }) {
   const moduleIdRef = useRef(1);
   const incomingMessageQueueRef = useRef([]);
   const incomingMessageTimerRef = useRef(null);
+  const responseTimeoutRef = useRef(null);
   const lastIncomingMessageAtRef = useRef(0);
   const hasPendingResponseRef = useRef(false);
   const responseCompleteRef = useRef(false);
@@ -379,8 +381,40 @@ export function usePlaySession({ gameId, socketUrl }) {
     }
   };
 
+  const clearResponseTimeout = () => {
+    if (responseTimeoutRef.current) {
+      window.clearTimeout(responseTimeoutRef.current);
+      responseTimeoutRef.current = null;
+    }
+  };
+
+  const scheduleResponseTimeout = () => {
+    clearResponseTimeout();
+
+    responseTimeoutRef.current = window.setTimeout(() => {
+      responseTimeoutRef.current = null;
+
+      if (!hasPendingResponseRef.current) {
+        return;
+      }
+
+      logPlaySocket('warn', 'response-timeout', {
+        gameId,
+        socketUrl,
+      });
+      clearIncomingMessageTimer();
+      incomingMessageQueueRef.current = [];
+      lastIncomingMessageAtRef.current = 0;
+      hasPendingResponseRef.current = false;
+      responseCompleteRef.current = false;
+      closeWaiting();
+      message.info('当前返回超时，请检查连接后重试');
+    }, RESPONSE_TIMEOUT_MS);
+  };
+
   const resetIncomingMessagePlayback = () => {
     clearIncomingMessageTimer();
+    clearResponseTimeout();
     incomingMessageQueueRef.current = [];
     lastIncomingMessageAtRef.current = 0;
     hasPendingResponseRef.current = false;
@@ -458,6 +492,7 @@ export function usePlaySession({ gameId, socketUrl }) {
   };
 
   const markResponseComplete = () => {
+    clearResponseTimeout();
     responseCompleteRef.current = true;
     finalizeIncomingMessagePlayback();
   };
@@ -529,6 +564,9 @@ export function usePlaySession({ gameId, socketUrl }) {
         });
         switch (response.func) {
           case 'chat': {
+            if (hasPendingResponseRef.current) {
+              scheduleResponseTimeout();
+            }
             const chatMessage = {
               message: response.message,
               character: response.character,
@@ -543,6 +581,9 @@ export function usePlaySession({ gameId, socketUrl }) {
             break;
           }
           case 'image': {
+            if (hasPendingResponseRef.current) {
+              scheduleResponseTimeout();
+            }
             enqueueIncomingMessage({
               message: response.message,
               character: response.character,
@@ -738,6 +779,7 @@ export function usePlaySession({ gameId, socketUrl }) {
       });
     }
     showWaiting();
+    scheduleResponseTimeout();
     return true;
   };
 

@@ -11,6 +11,7 @@ async function bootstrap() {
     bodyParser: false,
   });
 
+  app.enableShutdownHooks();
   app.enableCors();
   app.useGlobalPipes(
     new ValidationPipe({

@@ -6,6 +6,7 @@ import { firstLogin, helpDialogConfig, images } from '../../constant';
 import { HelpDialog } from '../../components/common/HelpDialog';
 import { LeftChatMessage, LeftImageMessage, RightChatMessage, ImageLightbox } from '../../components/play/ChatParts';
 import { usePlaySession } from '../../hooks/usePlaySession';
+import { resolveLegacyWsUrl } from '../../utils/network';
 import iconSystemModel from '@/icon_system_model.png';
 
 function getLeftSpeakerName(item) {
@@ -143,7 +144,7 @@ export function PlayMainPage() {
     sendMessage,
   } = usePlaySession({
     gameId: id,
-    socketUrl: 'ws://localhost:3300/',
+    socketUrl: resolveLegacyWsUrl(),
   });
 
   const characterName = useMemo(() => characterInfo?.info?.name || '', [characterInfo]);

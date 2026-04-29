@@ -8,74 +8,45 @@ import { clearLogin } from '../../function/loginCheck';
 import { API } from '../../utils/API';
 import { commitUserInfo, ensureUserInfo, getCachedUserInfo } from '../../utils/session';
 
-const cardStyle = {
-  width: '16.8rem',
-  background: 'rgba(0, 0, 0, 0.28)',
-  border: '0.044rem solid rgba(255,255,255,0.08)',
-  borderRadius: '0.875rem',
-  padding: '0.875rem',
-  color: '#fff',
-  boxSizing: 'border-box',
-};
-
-function ActionButton({ label, onClick, danger = false }) {
+function EditRow({ label, children }) {
   return (
-    <div
-      onClick={onClick}
-      style={{
-        cursor: 'pointer',
-        borderRadius: '999px',
-        padding: '0.5rem 0.8rem',
-        color: '#fff',
-        background: danger ? 'rgba(142, 38, 32, 0.86)' : 'rgba(28, 122, 59, 0.85)',
-        border: '0.044rem solid rgba(255,255,255,0.12)',
-        fontSize: '0.62rem',
-      }}
-    >
-      {label}
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.55rem 0', borderBottom: '0.044rem solid rgba(255,255,255,0.08)' }}>
+      <div style={{ width: '3.4rem', color: '#000000', fontSize: '0.72rem' }}>{label}</div>
+      <div style={{ flex: 1 }}>{children}</div>
     </div>
   );
 }
 
-function InfoLine({ label, value }) {
+function MobileHeaderAction({ label, onClick }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', padding: '0.42rem 0', borderBottom: '0.044rem solid rgba(255,255,255,0.06)' }}>
-      <span style={{ color: 'rgba(255,255,255,0.55)' }}>{label}</span>
-      <span style={{ color: '#fff', textAlign: 'right', wordBreak: 'break-all' }}>{value || '--'}</span>
+    <button type="button" className="mobile-account-page__rolebutton" onClick={onClick}>
+      {label}
+    </button>
+  );
+}
+
+function AccountDetailItem({ label, value }) {
+  return (
+    <div className="mobile-account-page__detailitem">
+      <span>{label}</span>
+      <strong>{value || '--'}</strong>
     </div>
   );
 }
 
 function SettingRow({ title, description, onClick, danger = false }) {
   return (
-    <div
+    <button
+      type="button"
+      className={`mobile-account-page__actionrow${danger ? ' is-danger' : ''}`}
       onClick={onClick}
-      style={{
-        minHeight: '2.65rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: '0.5rem',
-        padding: '0.5rem 0',
-        borderBottom: '0.044rem solid rgba(255,255,255,0.06)',
-        cursor: 'pointer',
-      }}
     >
-      <div style={{ minWidth: 0, textAlign: 'left' }}>
-        <div style={{ color: danger ? '#ffb4aa' : '#fff', fontSize: '0.62rem' }}>{title}</div>
-        <div style={{ color: 'rgba(255,255,255,0.46)', fontSize: '0.5rem', marginTop: '0.18rem' }}>{description}</div>
+      <div className="mobile-account-page__actioncopy">
+        <strong>{title}</strong>
+        <span>{description}</span>
       </div>
-      <img alt="entry" src={images.icon_start} style={{ width: '0.72rem', height: '0.72rem', opacity: 0.72, transform: 'rotate(180deg)' }} />
-    </div>
-  );
-}
-
-function EditRow({ label, children }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.55rem 0', borderBottom: '0.044rem solid rgba(255,255,255,0.08)' }}>
-      <div style={{ width: '3.4rem', color: 'rgba(255,255,255,0.62)', fontSize: '0.72rem' }}>{label}</div>
-      <div style={{ flex: 1 }}>{children}</div>
-    </div>
+      <i>{'>'}</i>
+    </button>
   );
 }
 
@@ -179,8 +150,14 @@ export function MobileAccountPage() {
   if (loading) {
     return (
       <div className="mobile-app">
-        <div className="main-container">
-          <div className="mainpage-container" style={{ justifyContent: 'center', alignItems: 'center' }}>
+        <div
+          className="main-container mobile-account-page"
+          style={{ backgroundImage: `url(${images.background5})` }}
+        >
+          <div
+            className="mobile-account-page__scroll"
+            style={{ justifyContent: 'center', alignItems: 'center', display: 'flex' }}
+          >
             <Spin />
           </div>
         </div>
@@ -190,36 +167,73 @@ export function MobileAccountPage() {
 
   return (
     <div className="mobile-app">
-      <div className="main-container" style={{ background: `url(${images.background5})`, backgroundPosition: 'center center', backgroundSize: 'cover' }}>
-        <div className="mainpage-container">
-          <div style={{ width: '100%', height: '100%', overflowY: 'auto', padding: '0.75rem 0.6rem 1.2rem', boxSizing: 'border-box' }}>
-            <div className="normal-row" style={{ marginBottom: '0.75rem' }}>
-              <div className="row">
-                <img alt="back" src={images.icon_back} onClick={() => navigate('/mobile/main')} />
-              </div>
-              <span style={{ fontSize: '0.86rem' }}>{'账号管理'}</span>
-              <ActionButton label="角色" onClick={() => navigate('/mobile/mepage')} />
+      <div
+        className="main-container mobile-account-page"
+        style={{ backgroundImage: `url(${images.background5})` }}
+      >
+        <div className="mobile-account-page__scroll">
+          <header className="mobile-account-page__header">
+            <button
+              type="button"
+              className="mobile-account-page__backbutton"
+              onClick={() => navigate('/mobile/main')}
+            >
+              <img alt="back" src={images.icon_back} />
+            </button>
+            <div className="mobile-account-page__titleblock">
+              <span>Account Center</span>
+              <strong>账号管理</strong>
             </div>
+            <MobileHeaderAction label="角色" onClick={() => navigate('/mobile/mepage')} />
+          </header>
 
-            <div style={cardStyle}>
-              <div style={{ color: '#fff', fontSize: '0.76rem', textAlign: 'left', marginBottom: '0.7rem' }}>{'账号信息'}</div>
-              <div style={{ color: 'rgba(255,255,255,0.68)', fontSize: '0.56rem', textAlign: 'left' }}>
-                <InfoLine label="用户名" value={userInfo.user_name} />
-                <InfoLine label="用户 ID" value={userInfo.user_id} />
-                <InfoLine label="邮箱" value={userInfo.user_email} />
-                <InfoLine label="手机" value={userInfo.user_phone} />
-              </div>
+          <section className="mobile-account-page__hero">
+            <span className="mobile-account-page__eyebrow">账号信息</span>
+            <h1>{userInfo.user_name || '未命名用户'}</h1>
+            <div className="mobile-account-page__metarow">
+              <span>ID {userInfo.user_id || '--'}</span>
+              <span>{userInfo.user_phone ? '手机已绑定' : '手机未绑定'}</span>
+              <span>{userInfo.user_email ? '邮箱已绑定' : '邮箱未绑定'}</span>
             </div>
+          </section>
 
-            <div style={{ ...cardStyle, marginTop: '0.75rem' }}>
-              <div style={{ color: '#fff', fontSize: '0.76rem', textAlign: 'left', marginBottom: '0.7rem' }}>{'基础功能'}</div>
-              <div>
-                <SettingRow title="修改账号信息" description="编辑用户名、邮箱和手机号" onClick={() => setEditing(true)} />
-                <SettingRow title="关于" description="查看当前版本信息" onClick={() => Modal.info({ title: '关于', content: 'AI Dreamroom Beta 0.9.2' })} />
-                <SettingRow title="注销账号" description="清除本机登录状态并返回登录页" onClick={logout} danger />
-              </div>
+          <section className="mobile-account-page__section">
+            <div className="mobile-account-page__sectionhead">
+              <strong>账户详情</strong>
+              <span>基础资料</span>
             </div>
-          </div>
+            <div className="mobile-account-page__detailpanel">
+              <AccountDetailItem label="用户名" value={userInfo.user_name} />
+              <AccountDetailItem label="用户 ID" value={userInfo.user_id} />
+              <AccountDetailItem label="邮箱" value={userInfo.user_email} />
+              <AccountDetailItem label="手机" value={userInfo.user_phone} />
+            </div>
+          </section>
+
+          <section className="mobile-account-page__section">
+            <div className="mobile-account-page__sectionhead">
+              <strong>快捷操作</strong>
+              <span>账号与系统</span>
+            </div>
+            <div className="mobile-account-page__actionpanel">
+              <SettingRow
+                title="修改账号信息"
+                description="编辑用户名、邮箱和手机号"
+                onClick={() => setEditing(true)}
+              />
+              <SettingRow
+                title="关于"
+                description="查看当前版本信息"
+                onClick={() => Modal.info({ title: '关于', content: 'AI Dreamroom Beta 0.9.2' })}
+              />
+              <SettingRow
+                title="注销账号"
+                description="清除本机登录状态并返回登录页"
+                onClick={logout}
+                danger
+              />
+            </div>
+          </section>
         </div>
 
         <Modal

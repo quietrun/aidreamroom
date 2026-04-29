@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import '../../styles/index.scss';
 import { images } from '../../../constant';
 import { usePlaySession } from '../../../hooks/usePlaySession';
+import { resolveLegacyWsUrl } from '../../../utils/network';
 import { LeftChatMessage, LeftImageMessage, RightChatMessage, ImageLightbox } from '../../../components/play/ChatParts';
 import iconSystemModel from '@/icon_system_model.png';
 
@@ -125,7 +126,7 @@ export function MobilePlayMainPage() {
     sendMessage,
   } = usePlaySession({
     gameId: id,
-    socketUrl: 'ws://54.215.173.53:3300/',
+    socketUrl: resolveLegacyWsUrl(),
   });
   const characterName = useMemo(() => characterInfo?.info?.name || '', [characterInfo]);
   const backpackList = boardList[0] || [];

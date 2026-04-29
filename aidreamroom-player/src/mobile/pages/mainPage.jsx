@@ -238,7 +238,7 @@ export function MobileMainPage() {
               title="背包仓库"
               subtitle={`${warehouseSummary.usedSlots}/${warehouseSummary.capacity} 已用`}
               tone="violet"
-              onClick={() => navigate('/mobile/warehouse')}
+              onClick={() => navigate('/mobile/mepage', { state: { section: 'warehouse', warehouseTab: 'warehouse' } })}
             />
           </section>
 
