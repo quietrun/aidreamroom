@@ -11,12 +11,28 @@ type ScriptRow = {
   difficulty: string | null;
   required_items: string | null;
   required_knowledge: string | null;
+  poster: string | null;
   script_file: string | null;
   npc_file: string | null;
   item_file: string | null;
   map_file: string | null;
   createTime: number | bigint | null;
   updateTime: number | bigint | null;
+};
+
+type ScriptFileMetadata = {
+  title?: string;
+  description?: string;
+  total_nodes?: number;
+  total_events?: number;
+  theme?: string;
+  difficulty?: string;
+  required_items?: string[];
+  required_knowledge?: string[];
+  story_core?: string;
+  poster?: string;
+  cover?: string;
+  image?: string;
 };
 
 type ScriptSummaryRow = Omit<
@@ -48,7 +64,7 @@ export class ScriptsService implements OnModuleInit {
     await this.ensureTable();
     const row = await this.db.findFirst<ScriptSummaryRow>(
       `
-        select uuid, title, description, total_nodes, theme, difficulty, required_items, required_knowledge, createTime, updateTime
+        select uuid, title, description, total_nodes, theme, difficulty, required_items, required_knowledge, poster, createTime, updateTime
         from script_table
         order by rand()
         limit 1
@@ -59,8 +75,8 @@ export class ScriptsService implements OnModuleInit {
 
   private ensureTable() {
     if (!this.tableReady) {
-      this.tableReady = this.db
-        .execute(`
+      this.tableReady = (async () => {
+        await this.db.execute(`
           CREATE TABLE IF NOT EXISTS \`script_table\` (
             \`uuid\` varchar(32) NOT NULL,
             \`title\` text NOT NULL,
@@ -70,6 +86,7 @@ export class ScriptsService implements OnModuleInit {
             \`difficulty\` varchar(64) NULL,
             \`required_items\` longtext NULL,
             \`required_knowledge\` longtext NULL,
+            \`poster\` longtext NULL,
             \`script_file\` longtext NULL,
             \`npc_file\` longtext NULL,
             \`item_file\` longtext NULL,
@@ -78,9 +95,9 @@ export class ScriptsService implements OnModuleInit {
             \`updateTime\` bigint NULL,
             PRIMARY KEY (\`uuid\`)
           ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        `)
-        .then(() =>
-          this.db.execute(`
+        `);
+        await this.ensurePosterColumn();
+        await this.db.execute(`
             ALTER TABLE \`script_table\`
             MODIFY COLUMN \`title\` text NOT NULL,
             MODIFY COLUMN \`description\` longtext NULL,
@@ -88,29 +105,55 @@ export class ScriptsService implements OnModuleInit {
             MODIFY COLUMN \`difficulty\` varchar(64) NULL,
             MODIFY COLUMN \`required_items\` longtext NULL,
             MODIFY COLUMN \`required_knowledge\` longtext NULL,
+            MODIFY COLUMN \`poster\` longtext NULL,
             MODIFY COLUMN \`script_file\` longtext NULL,
             MODIFY COLUMN \`npc_file\` longtext NULL,
             MODIFY COLUMN \`item_file\` longtext NULL,
             MODIFY COLUMN \`map_file\` longtext NULL
-          `),
-        )
-        .then(() => undefined);
+          `);
+      })();
     }
 
     return this.tableReady;
+  }
+
+  private async ensurePosterColumn() {
+    const row = await this.db.findFirst<{ total: number | string }>(
+      `
+        SELECT COUNT(*) AS total
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'script_table'
+          AND COLUMN_NAME = 'poster'
+      `,
+    );
+
+    if (Number(row?.total ?? 0) > 0) {
+      return;
+    }
+
+    await this.db.execute(`
+      ALTER TABLE \`script_table\`
+      ADD COLUMN \`poster\` longtext NULL AFTER \`required_knowledge\`
+    `);
   }
 
   private buildScriptResponse(row: ScriptSummaryRow, includeFiles = true) {
     const scriptMetadata = includeFiles
       ? this.parseScriptFileMetadata(row.script_file ?? null)
       : null;
+    const poster = this.pickScriptPoster(row.poster, scriptMetadata);
+    const totalEvents = Number(
+      scriptMetadata?.total_events ?? scriptMetadata?.total_nodes ?? row.total_nodes ?? 0,
+    );
     const script = {
       uuid: row.uuid,
+      poster,
       metadata: {
         title: scriptMetadata?.title || row.title,
         description: scriptMetadata?.description || row.description || '',
-        totalNodes: Number(scriptMetadata?.total_events ?? row.total_nodes ?? 0),
-        totalEvents: Number(scriptMetadata?.total_events ?? row.total_nodes ?? 0),
+        totalNodes: totalEvents,
+        totalEvents,
         theme: scriptMetadata?.theme || row.theme || '',
         difficulty: scriptMetadata?.difficulty || row.difficulty || '',
         requiredItems:
@@ -119,6 +162,7 @@ export class ScriptsService implements OnModuleInit {
           scriptMetadata?.required_knowledge ??
           this.parseStringList(row.required_knowledge),
         storyCore: scriptMetadata?.story_core ?? '',
+        poster,
       },
       createTime: this.normalizeTimestamp(row.createTime),
       updateTime: this.normalizeTimestamp(row.updateTime),
@@ -164,21 +208,28 @@ export class ScriptsService implements OnModuleInit {
 
     try {
       const parsed = JSON.parse(raw) as {
-        metadata?: {
-          title?: string;
-          description?: string;
-          total_events?: number;
-          theme?: string;
-          difficulty?: string;
-          required_items?: string[];
-          required_knowledge?: string[];
-          story_core?: string;
-        };
+        metadata?: ScriptFileMetadata;
       };
       return parsed.metadata ?? null;
     } catch {
       return null;
     }
+  }
+
+  private pickScriptPoster(
+    rowPoster: string | null | undefined,
+    scriptMetadata: ScriptFileMetadata | null,
+  ) {
+    return (
+      this.normalizeOptionalText(rowPoster) ||
+      this.normalizeOptionalText(scriptMetadata?.poster) ||
+      this.normalizeOptionalText(scriptMetadata?.cover) ||
+      this.normalizeOptionalText(scriptMetadata?.image)
+    );
+  }
+
+  private normalizeOptionalText(value: unknown) {
+    return String(value ?? '').trim();
   }
 
   private normalizeTimestamp(value: number | bigint | null) {

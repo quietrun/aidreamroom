@@ -375,4 +375,3 @@ export function AuthPage({ mobile = false }) {
     </div>
   );
 }
-

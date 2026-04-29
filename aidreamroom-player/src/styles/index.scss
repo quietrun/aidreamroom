@@ -224,6 +224,373 @@ textarea {
     margin-bottom: 2.8rem;
 }
 
+.entrydream-v2-page {
+    overflow: hidden;
+}
+
+.entrydream-v2-page::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(8, 7, 5, 0.18), rgba(8, 7, 5, 0.38));
+    z-index: 0;
+}
+
+.entrydream-v2-page .login-logo,
+.entrydream-v2-page .login-eng-logo {
+    position: relative;
+    z-index: 3;
+}
+
+.entrydream-v2-page .login-eng-logo {
+    opacity: 0.14;
+}
+
+.entrydream-v2-shell {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 7.4rem 4.4rem 6rem;
+    box-sizing: border-box;
+}
+
+.entrydream-v2-eyebrow {
+    color: rgba(197, 160, 82, 0.92);
+    font-size: 0.96rem;
+    letter-spacing: 0.34rem;
+    text-transform: uppercase;
+    position: relative;
+    padding: 0 2.2rem;
+    margin-bottom: 1rem;
+}
+
+.entrydream-v2-eyebrow::before,
+.entrydream-v2-eyebrow::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 2rem;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(197, 160, 82, 0), rgba(197, 160, 82, 0.92));
+}
+
+.entrydream-v2-eyebrow::before {
+    left: 0;
+}
+
+.entrydream-v2-eyebrow::after {
+    right: 0;
+    transform: scaleX(-1);
+}
+
+.entrydream-v2-title {
+    margin: 0;
+    color: #fffdf7;
+    font-size: 3.95rem;
+    line-height: 1.06;
+    font-weight: 700;
+    letter-spacing: 0.08rem;
+    font-family: "STSong", "Songti SC", "Noto Serif SC", serif;
+    text-align: center;
+    text-shadow: 0 0.45rem 1.6rem rgba(0, 0, 0, 0.36);
+}
+
+.entrydream-v2-statusbar {
+    margin-top: 1.55rem;
+    padding: 0.78rem 1.15rem;
+    border-radius: 999px;
+    border: 1px solid rgba(160, 126, 56, 0.28);
+    background: rgba(17, 14, 10, 0.66);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03), 0 0.6rem 1.8rem rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(16px);
+    display: flex;
+    align-items: center;
+    gap: 0;
+}
+
+.entrydream-v2-statusitem {
+    display: flex;
+    align-items: center;
+    gap: 0.68rem;
+    padding: 0 1.1rem;
+    position: relative;
+    color: rgba(255, 243, 213, 0.92);
+
+    strong {
+        color: #f3df9b;
+        font-size: 1.28rem;
+        line-height: 1;
+        font-weight: 600;
+        letter-spacing: 0.04rem;
+        max-width: 12rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .is-accent {
+        color: #9ad4c7;
+    }
+}
+
+.entrydream-v2-statusitem + .entrydream-v2-statusitem::before {
+    content: '';
+    width: 1px;
+    height: 1.65rem;
+    background: rgba(175, 148, 90, 0.24);
+    position: absolute;
+    left: 0;
+}
+
+.entrydream-v2-statuslabel {
+    color: rgba(231, 223, 200, 0.66);
+    font-size: 0.86rem;
+    white-space: nowrap;
+}
+
+.entrydream-v2-statusdot {
+    width: 0.62rem;
+    height: 0.62rem;
+    border-radius: 50%;
+    background: #4fd56a;
+    box-shadow: 0 0 0.8rem rgba(79, 213, 106, 0.9);
+    flex-shrink: 0;
+}
+
+.entrydream-v2-cardgrid {
+    width: min(90rem, calc(100vw - 14rem));
+    margin-top: 2.7rem;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.35rem;
+}
+
+.entrydream-v2-card {
+    position: relative;
+    min-height: 16.8rem;
+    border-radius: 1.7rem;
+    border: 1px solid rgba(142, 112, 45, 0.36);
+    background:
+        linear-gradient(180deg, rgba(21, 18, 13, 0.84), rgba(15, 12, 9, 0.9)),
+        linear-gradient(135deg, rgba(122, 96, 42, 0.14), rgba(255, 255, 255, 0));
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03), 0 1.2rem 3rem rgba(0, 0, 0, 0.26);
+    padding: 1.85rem 2.1rem 1.7rem;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+    overflow: hidden;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+
+    h2 {
+        margin: 0.95rem 0 0;
+        color: #fffcf6;
+        font-size: 2.1rem;
+        line-height: 1.1;
+        font-family: "STSong", "Songti SC", "Noto Serif SC", serif;
+    }
+
+    p {
+        margin: 0.78rem 0 0;
+        color: rgba(230, 222, 206, 0.72);
+        font-size: 0.98rem;
+        line-height: 1.62;
+    }
+}
+
+.entrydream-v2-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-position: center center;
+    background-size: cover;
+    opacity: 0.12;
+    mix-blend-mode: screen;
+}
+
+.entrydream-v2-card.is-continue::before {
+    background-image: url('@//btn_entry_continue.png');
+}
+
+.entrydream-v2-card.is-start::before {
+    background-image: url('@//btn_entry_new.png');
+}
+
+.entrydream-v2-card:hover:not(.is-disabled) {
+    transform: translateY(-0.22rem);
+    border-color: rgba(210, 171, 82, 0.58);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04), 0 1.6rem 3.2rem rgba(0, 0, 0, 0.32);
+}
+
+.entrydream-v2-card.is-disabled {
+    cursor: not-allowed;
+    opacity: 0.72;
+}
+
+.entrydream-v2-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    width: fit-content;
+    padding: 0.4rem 0.82rem;
+    border-radius: 999px;
+    border: 1px solid rgba(188, 153, 76, 0.32);
+    background: rgba(88, 64, 25, 0.36);
+    color: #d7b663;
+    font-size: 0.86rem;
+    letter-spacing: 0.03rem;
+}
+
+.entrydream-v2-tag::before {
+    content: '';
+    width: 0.56rem;
+    height: 0.56rem;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.9;
+}
+
+.entrydream-v2-divider {
+    width: 100%;
+    height: 1px;
+    margin-top: auto;
+    background: linear-gradient(90deg, rgba(171, 136, 65, 0), rgba(171, 136, 65, 0.3), rgba(171, 136, 65, 0));
+}
+
+.entrydream-v2-cardfooter {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 0.85rem;
+    margin-top: 1.15rem;
+}
+
+.entrydream-v2-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.28rem;
+
+    span {
+        color: rgba(219, 208, 181, 0.54);
+        font-size: 0.82rem;
+    }
+
+    strong {
+        color: #e6c86f;
+        font-size: 1.16rem;
+        line-height: 1.2;
+        font-weight: 600;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
+
+.entrydream-v2-actionpill {
+    align-self: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 7.8rem;
+    height: 2.75rem;
+    padding: 0 1.1rem;
+    border-radius: 999px;
+    border: 1px solid rgba(197, 160, 82, 0.5);
+    background: linear-gradient(180deg, rgba(120, 90, 30, 0.6), rgba(85, 62, 19, 0.72));
+    color: #f7edd0;
+    font-size: 0.98rem;
+    font-weight: 600;
+    white-space: nowrap;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.entrydream-v2-footer {
+    position: absolute;
+    left: 50%;
+    bottom: 2.9rem;
+    transform: translateX(-50%);
+    z-index: 3;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.entrydream-v2-footerbutton {
+    border: 0;
+    background: transparent;
+    color: rgba(232, 224, 201, 0.78);
+    font-size: 1rem;
+    letter-spacing: 0.06rem;
+    padding: 0.4rem 0.9rem;
+    cursor: pointer;
+    transition: color 0.18s ease, opacity 0.18s ease, transform 0.18s ease;
+}
+
+.entrydream-v2-footerbutton:hover {
+    color: #f1ddb0;
+    transform: translateY(-0.06rem);
+}
+
+@media (max-width: 1380px) {
+    .entrydream-v2-cardgrid {
+        width: min(74rem, calc(100vw - 5rem));
+    }
+
+    .entrydream-v2-title {
+        font-size: 3.45rem;
+    }
+
+    .entrydream-v2-card {
+        min-height: 15.8rem;
+        padding: 1.65rem 1.85rem 1.55rem;
+    }
+
+    .entrydream-v2-card h2 {
+        font-size: 1.88rem;
+    }
+
+    .entrydream-v2-statusitem strong {
+        font-size: 1.15rem;
+        max-width: 9rem;
+    }
+}
+
+@media (max-width: 1180px) {
+    .entrydream-v2-shell {
+        justify-content: flex-start;
+        padding-top: 12.4rem;
+    }
+
+    .entrydream-v2-footer {
+        bottom: 2.2rem;
+    }
+
+    .entrydream-v2-statusbar {
+        flex-wrap: wrap;
+        justify-content: center;
+        border-radius: 1.4rem;
+        padding: 1rem 1.2rem;
+    }
+
+    .entrydream-v2-statusitem {
+        padding: 0.4rem 1rem;
+    }
+
+    .entrydream-v2-statusitem + .entrydream-v2-statusitem::before {
+        display: none;
+    }
+
+    .entrydream-v2-cardgrid {
+        width: min(44rem, calc(100vw - 4rem));
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
 .login-ad {
     position: absolute;
     right: 1%;
@@ -1199,16 +1566,37 @@ body,
 .role-profile-card,
 .role-side-card {
     border-radius: 1.05rem;
-    padding: 1.15rem;
+    padding: 1.2rem 1.25rem;
 }
 
 .role-profile-card {
-    min-height: 12.2rem;
+    min-height: 14.4rem;
+}
+
+.role-side-card-title {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    margin-bottom: 1rem;
+}
+
+.role-side-card-title span {
+    color: #c5a457;
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+}
+
+.role-side-card-title i {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(172, 137, 58, 0.3), rgba(172, 137, 58, 0));
 }
 
 .role-profile-head {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 1rem;
 }
 
@@ -1246,14 +1634,14 @@ body,
 .role-profile-title h1 {
     margin: 0;
     color: #fff;
-    font-size: 1.35rem;
+    font-size: 2rem;
     line-height: 1.2;
 }
 
 .role-profile-title p {
-    margin: 0.35rem 0 0.55rem;
+    margin: 0.42rem 0 0.68rem;
     color: rgba(255, 255, 255, 0.65);
-    font-size: 0.86rem;
+    font-size: 1rem;
 }
 
 .role-profile-title div {
@@ -1265,13 +1653,13 @@ body,
 .role-chip {
     display: inline-flex;
     align-items: center;
-    min-height: 1.55rem;
-    padding: 0.22rem 0.7rem;
+    min-height: 1.7rem;
+    padding: 0.22rem 0.78rem;
     border-radius: 1rem;
-    color: rgba(255, 255, 255, 0.78);
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    font-size: 0.72rem;
+    color: #d5ba70;
+    background: rgba(167, 131, 44, 0.14);
+    border: 1px solid rgba(200, 167, 90, 0.16);
+    font-size: 0.8rem;
     line-height: 1.2;
 }
 
@@ -1286,8 +1674,8 @@ body,
     padding-top: 1rem;
     border-top: 1px solid rgba(255, 255, 255, 0.08);
     color: rgba(255, 255, 255, 0.72);
-    font-size: 0.86rem;
-    line-height: 1.8;
+    font-size: 0.95rem;
+    line-height: 1.9;
     text-align: left;
 }
 
@@ -1360,20 +1748,56 @@ body,
     gap: 0.58rem;
 }
 
+.role-action-card {
+    margin-top: auto;
+}
+
+.role-action-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+}
+
+.role-action-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.7rem;
+}
+
 .role-action-button {
-    min-width: 4.65rem;
-    height: 2.1rem;
+    min-width: 0;
+    height: 3rem;
     padding: 0 1rem;
-    border: none;
-    border-radius: 1.2rem;
-    background: rgba(43, 129, 60, 0.92);
-    color: #fff;
-    font-size: 0.82rem;
+    border: 1px solid rgba(186, 153, 75, 0.22);
+    border-radius: 1rem;
+    background: rgba(120, 91, 28, 0.12);
+    color: #d8bf7a;
+    font-size: 0.95rem;
+    font-weight: 600;
     cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.role-action-button:hover {
+    transform: translateY(-1px);
+    border-color: rgba(214, 180, 92, 0.42);
+    background: rgba(134, 101, 32, 0.18);
+}
+
+.role-action-button.active {
+    border-color: rgba(214, 180, 92, 0.42);
+    background: rgba(134, 101, 32, 0.24);
+    color: #f4d98b;
+}
+
+.role-action-button.wide {
+    width: 100%;
 }
 
 .role-action-button.danger {
-    background: rgba(143, 48, 41, 0.9);
+    border-color: rgba(161, 72, 48, 0.28);
+    background: rgba(95, 37, 23, 0.28);
+    color: #d98872;
 }
 
 .role-adventure-card {
@@ -1404,12 +1828,12 @@ body,
 .role-header-actions {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.7rem;
 }
 
 .role-tab-list button,
 .role-header-actions button {
-    border: none;
+    border: 1px solid transparent;
     outline: none;
     color: rgba(255, 255, 255, 0.52);
     font: inherit;
@@ -1417,44 +1841,61 @@ body,
 }
 
 .role-tab-list button {
-    min-width: 5.2rem;
-    height: 2.2rem;
-    padding: 0 1rem;
-    border-radius: 0.75rem;
+    min-width: 0;
+    height: 2.6rem;
+    padding: 0 1.05rem;
+    border-radius: 0.9rem;
     background: transparent;
-    font-size: 0.82rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.role-tab-divider {
+    width: 1px;
+    height: 1.5rem;
+    background: rgba(178, 148, 84, 0.16);
 }
 
 .role-tab-list button.active {
-    color: #fff;
-    background: rgba(255, 255, 255, 0.16);
+    color: #f6de97;
+    background: rgba(153, 121, 44, 0.18);
+    border-color: rgba(202, 168, 83, 0.3);
+}
+
+.role-tab-list button.tone-blue.active {
+    color: #edf3ff;
+    background: rgba(59, 82, 146, 0.24);
+    border-color: rgba(123, 158, 241, 0.52);
+    box-shadow: 0 0 0 2px rgba(94, 130, 214, 0.18);
 }
 
 .role-header-actions button {
-    height: 2.05rem;
-    padding: 0 0.85rem;
+    height: 2.5rem;
+    padding: 0 1rem;
     border-radius: 1rem;
     background: rgba(255, 255, 255, 0.08);
-    font-size: 0.76rem;
+    font-size: 0.86rem;
 }
 
 .role-header-actions button.back {
     display: inline-flex;
     align-items: center;
     gap: 0.42rem;
-    background: transparent;
+    border-color: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.74);
 }
 
 .role-header-actions span {
-    width: 1.5rem;
-    height: 1.5rem;
+    width: 1.45rem;
+    height: 1.45rem;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     border-radius: 1.5rem;
     color: #fff;
-    background: rgba(255, 255, 255, 0.08);
-    font-size: 1.25rem;
+    background: rgba(255, 255, 255, 0.06);
+    font-size: 1.1rem;
     line-height: 1;
 }
 
@@ -1462,18 +1903,74 @@ body,
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    padding: 1.35rem 1.55rem 2rem;
+    padding: 1.6rem 1.75rem 2rem;
 }
 
-.role-main-content h2 {
-    margin: 0 0 1.15rem;
-    color: rgba(255, 255, 255, 0.88);
+.role-panel-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.2rem;
+}
+
+.role-panel-section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    min-width: 0;
+}
+
+.role-panel-section-title i {
+    width: 0.55rem;
+    height: 0.55rem;
+    flex-shrink: 0;
+    border-radius: 0.08rem;
+    transform: rotate(45deg);
+    background: #c7a451;
+}
+
+.role-panel-section-title h2 {
+    margin: 0;
+    color: #e6c97d;
     font-size: 1rem;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.role-panel-section-title span {
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 0.88rem;
     text-align: left;
 }
 
-.role-main-content h2.role-section-subtitle {
-    margin-top: 1.4rem;
+.role-panel-section-actions {
+    display: flex;
+    align-items: center;
+}
+
+.role-inline-action {
+    height: 2.2rem;
+    padding: 0 0.95rem;
+    border: 1px solid rgba(200, 167, 90, 0.22);
+    border-radius: 0.9rem;
+    background: rgba(126, 96, 31, 0.12);
+    color: #d8bf7a;
+    font: inherit;
+    font-size: 0.84rem;
+    cursor: pointer;
+}
+
+.role-inline-action:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.role-subsection-title {
+    margin: 1.45rem 0 1rem;
+    color: rgba(255, 255, 255, 0.74);
+    font-size: 0.94rem;
+    text-align: left;
 }
 
 .role-attribute-grid {
@@ -1635,6 +2132,213 @@ body,
     text-align: left;
 }
 
+.role-content-placeholder {
+    min-height: 12rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.role-library-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.role-library-card {
+    min-width: 0;
+    padding: 1.2rem;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 1.2rem;
+    background: rgba(255, 255, 255, 0.05);
+    box-sizing: border-box;
+}
+
+.role-library-card.tone-weapon,
+.role-skill-card.is-locked {
+    background: rgba(66, 37, 20, 0.74);
+    border-color: rgba(151, 90, 55, 0.22);
+}
+
+.role-library-card.tone-equipment,
+.role-skill-card.is-ready {
+    background: rgba(16, 45, 24, 0.78);
+    border-color: rgba(56, 123, 72, 0.22);
+}
+
+.role-library-card.tone-consumable {
+    background: rgba(29, 31, 48, 0.78);
+    border-color: rgba(83, 95, 152, 0.2);
+}
+
+.role-library-card.tone-skill {
+    background: rgba(40, 28, 63, 0.82);
+    border-color: rgba(109, 90, 169, 0.24);
+}
+
+.role-library-card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.role-library-card-top h3 {
+    margin: 0;
+    color: #fff;
+    font-size: 1rem;
+    line-height: 1.3;
+    text-align: left;
+}
+
+.role-library-card-top p {
+    margin: 0.85rem 0 0;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+    line-height: 1.8;
+    text-align: left;
+}
+
+.role-library-tag-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    justify-content: flex-end;
+}
+
+.role-meta-pill,
+.role-status-pill {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    padding: 0.38rem 0.78rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 0.76rem;
+    line-height: 1.4;
+    box-sizing: border-box;
+}
+
+.role-meta-pill.success,
+.role-status-pill.success {
+    background: rgba(43, 120, 58, 0.34);
+    border-color: rgba(84, 182, 105, 0.18);
+    color: #d3f0d5;
+}
+
+.role-meta-pill.warning,
+.role-status-pill.warning {
+    background: rgba(138, 82, 38, 0.34);
+    border-color: rgba(205, 132, 72, 0.18);
+    color: #f4d4b8;
+}
+
+.role-meta-pill.info {
+    background: rgba(75, 94, 160, 0.28);
+    border-color: rgba(120, 143, 214, 0.18);
+    color: #d2dbff;
+}
+
+.role-meta-pill.muted {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.76);
+}
+
+.role-meta-pill.purple {
+    background: rgba(99, 75, 163, 0.32);
+    border-color: rgba(143, 120, 209, 0.18);
+    color: #e4dbff;
+}
+
+.role-library-metric-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.8rem;
+    margin-top: 1rem;
+}
+
+.role-library-metric-box,
+.role-library-wide-box {
+    border-radius: 0.95rem;
+    background: rgba(255, 255, 255, 0.06);
+    box-sizing: border-box;
+}
+
+.role-library-metric-box {
+    min-height: 4.8rem;
+    padding: 0.9rem 1rem;
+}
+
+.role-library-metric-box span,
+.role-library-wide-box span {
+    display: block;
+    color: rgba(255, 255, 255, 0.46);
+    font-size: 0.76rem;
+    text-align: left;
+}
+
+.role-library-metric-box strong,
+.role-library-wide-box strong {
+    display: block;
+    margin-top: 0.45rem;
+    color: #fff;
+    font-size: 1.05rem;
+    line-height: 1.55;
+    text-align: left;
+    word-break: break-word;
+}
+
+.role-library-wide-box {
+    margin-top: 0.9rem;
+    padding: 0.95rem 1rem;
+}
+
+.role-library-block {
+    margin-top: 1rem;
+}
+
+.role-library-block-title {
+    margin-bottom: 0.65rem;
+    color: rgba(255, 255, 255, 0.84);
+    font-size: 0.88rem;
+    text-align: left;
+}
+
+.role-library-pill-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+}
+
+.role-affix-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+}
+
+.role-affix-card {
+    padding: 0.85rem 0.95rem;
+    border-radius: 0.95rem;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.role-affix-card strong {
+    display: block;
+    color: #fff;
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-align: left;
+}
+
+.role-affix-card .role-library-pill-row {
+    margin-top: 0.6rem;
+}
+
 @media (max-width: 1220px) {
     .role-dashboard-shell {
         grid-template-columns: 21rem minmax(0, 1fr);
@@ -1643,6 +2347,21 @@ body,
     .role-attribute-grid,
     .role-derived-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .role-library-grid,
+    .role-ability-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .role-panel-section-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .role-action-row,
+    .role-status-grid {
+        grid-template-columns: 1fr;
     }
 }
 

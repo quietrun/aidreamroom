@@ -290,6 +290,9 @@ export type RawScriptFile = {
     total_events?: number;
     theme?: string;
     difficulty?: string;
+    poster?: string;
+    cover?: string;
+    image?: string;
     initial_event_id?: string | null;
     ending_event_ids?: string[];
     mainline_event_ids?: string[];
@@ -333,6 +336,7 @@ export type RawOutcomeCondition = RawCondition & {
 
 export type PlayScriptRecord = {
   uuid: string;
+  poster?: string;
   metadata: {
     title: string;
     description: string;
@@ -343,6 +347,7 @@ export type PlayScriptRecord = {
     requiredItems: string[];
     requiredKnowledge: string[];
     storyCore?: string;
+    poster?: string;
   };
   scriptFile?: string;
   npcFile?: string;

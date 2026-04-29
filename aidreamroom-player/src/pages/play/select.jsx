@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Spin, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 
+import defaultPoster from '@/default_poster.png';
 import loadingVideo from '@/loading.mp4';
 import '../../styles/index.scss';
 import { LoadingVideoOverlay } from '../../components/common/LoadingVideoOverlay';
@@ -38,7 +39,8 @@ const warehouseCategoryOptions = [
 const shellStyle = {
   backgroundColor: 'rgba(20, 24, 28, 0.82)',
   backgroundImage: 'none',
-  width: '90rem',
+  width: 'fit-content',
+  maxWidth: 'calc(100vw - 2rem)',
   height: '61rem',
   zoom: '90%',
   padding: '1.4rem',
@@ -65,6 +67,29 @@ const chipStyle = {
   lineHeight: 1.4,
 };
 
+const scriptThemeLabelMap = {
+  horror: '惊悚',
+  mystery: '悬疑',
+  survival: '生存',
+  fantasy: '奇幻',
+  adventure: '冒险',
+  romance: '恋爱',
+  historical: '历史',
+  wuxia: '武侠',
+  xianxia: '仙侠',
+  cyberpunk: '赛博朋克',
+  scifi: '科幻',
+  'sci-fi': '科幻',
+  'science-fiction': '科幻',
+  science_fiction: '科幻',
+  coc: 'CoC规则',
+  hospital_horror: '医院惊悚',
+  supernatural_system: '系统异常',
+  occult: '神秘学',
+  investigation: '调查',
+  urban_legend: '都市传闻',
+};
+
 function buildWarehouseSelectionKey(entry) {
   return `warehouse:${entry.uuid}`;
 }
@@ -87,6 +112,22 @@ function buildEquipmentSelectionLabel(entry) {
 
 function sanitizePlayLabel(value) {
   return String(value || '').replaceAll(',', '，').trim();
+}
+
+function normalizeScriptToken(value) {
+  return String(value || '').trim().toLowerCase().replaceAll(' ', '_');
+}
+
+function formatScriptThemeToken(value) {
+  const normalized = normalizeScriptToken(value);
+  return scriptThemeLabelMap[normalized] || String(value || '').trim();
+}
+
+function getScriptThemeTokens(theme) {
+  return String(theme || '')
+    .split('|')
+    .map((token) => formatScriptThemeToken(token))
+    .filter(Boolean);
 }
 
 function getEquipmentSlotKey(entry) {
@@ -131,33 +172,13 @@ function getScriptSizeLabel(totalNodes) {
 }
 
 function getScriptThemeLabel(theme) {
-  const rawTheme = String(theme || '').trim();
+  const tokens = getScriptThemeTokens(theme);
 
-  if (!rawTheme) {
+  if (!tokens.length) {
     return '--';
   }
-  if (rawTheme.toLowerCase() === 'coc') {
-    return rawTheme;
-  }
 
-  const themeLabelMap = {
-    horror: '惊悚',
-    mystery: '悬疑',
-    survival: '生存',
-    fantasy: '奇幻',
-    adventure: '冒险',
-    romance: '恋爱',
-    historical: '历史',
-    wuxia: '武侠',
-    xianxia: '仙侠',
-    cyberpunk: '赛博朋克',
-    scifi: '科幻',
-    'sci-fi': '科幻',
-    'science-fiction': '科幻',
-    science_fiction: '科幻',
-  };
-
-  return themeLabelMap[rawTheme.toLowerCase()] || rawTheme;
+  return tokens[0];
 }
 
 function getScriptDifficultyLabel(difficulty) {
@@ -199,35 +220,6 @@ function SectionTitle({ title, extra = null }) {
   );
 }
 
-function ActionButton({ label, onClick, disabled = false, tone = 'green' }) {
-  const background =
-    tone === 'ghost'
-      ? 'rgba(255,255,255,0.08)'
-      : tone === 'amber'
-        ? 'rgba(148, 91, 39, 0.82)'
-        : 'rgba(28, 122, 59, 0.88)';
-
-  return (
-    <div
-      onClick={disabled ? undefined : onClick}
-      style={{
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: disabled ? 0.58 : 1,
-        padding: '0.58rem 1rem',
-        borderRadius: '999px',
-        border: '1px solid rgba(255,255,255,0.1)',
-        background,
-        color: '#fff',
-        fontSize: '0.8rem',
-        whiteSpace: 'nowrap',
-        userSelect: 'none',
-      }}
-    >
-      {label}
-    </div>
-  );
-}
-
 function MetricCard({ label, value, accent }) {
   return (
     <div
@@ -250,6 +242,127 @@ function MetricCard({ label, value, accent }) {
 
 function SelectionChip({ label, accent = 'rgba(255,255,255,0.08)' }) {
   return <div style={{ ...chipStyle, background: accent }}>{label}</div>;
+}
+
+function PosterPill({ label, tone = 'wine' }) {
+  const styleByTone = {
+    wine: {
+      background: 'linear-gradient(180deg, rgba(126, 24, 24, 0.88), rgba(88, 17, 17, 0.82))',
+      border: '1px solid rgba(214, 73, 73, 0.4)',
+    },
+    amber: {
+      background: 'linear-gradient(180deg, rgba(88, 55, 14, 0.88), rgba(66, 41, 10, 0.82))',
+      border: '1px solid rgba(220, 161, 70, 0.42)',
+    },
+    blue: {
+      background: 'linear-gradient(180deg, rgba(19, 47, 97, 0.88), rgba(17, 39, 80, 0.82))',
+      border: '1px solid rgba(104, 146, 230, 0.38)',
+    },
+  };
+
+  return (
+    <div
+      style={{
+        width: 'fit-content',
+        minWidth: '4.9rem',
+        padding: '0.52rem 0.92rem',
+        borderRadius: '999px',
+        color: '#fff3d0',
+        fontSize: '0.76rem',
+        fontWeight: 600,
+        lineHeight: 1.2,
+        boxShadow: '0 0.6rem 1.2rem rgba(0,0,0,0.18)',
+        ...styleByTone[tone],
+      }}
+    >
+      {label}
+    </div>
+  );
+}
+
+function ScriptPosterMetric({ label, value }) {
+  return (
+    <div
+      style={{
+        minWidth: 0,
+        padding: '0.9rem 0.8rem',
+        borderRadius: '1.05rem',
+        border: '1px solid rgba(255, 223, 140, 0.12)',
+        background: 'rgba(6, 6, 6, 0.54)',
+        boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.02)',
+      }}
+    >
+      <div
+        style={{
+          color: 'rgba(242, 225, 181, 0.68)',
+          fontSize: '0.72rem',
+          textAlign: 'center',
+          marginBottom: '0.42rem',
+        }}
+      >
+        {label}
+      </div>
+      <div
+        style={{
+          color: '#f5dd96',
+          fontSize: '1.18rem',
+          fontWeight: 700,
+          textAlign: 'center',
+          lineHeight: 1.2,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}
+      >
+        {value || '--'}
+      </div>
+    </div>
+  );
+}
+
+function getScriptPoster(script) {
+  return (
+    script?.metadata?.poster ||
+    script?.metadata?.cover ||
+    script?.metadata?.image ||
+    script?.poster ||
+    defaultPoster
+  );
+}
+
+function getScriptNarrativeLabel(script) {
+  if (script?.metadata?.storyCore) {
+    return '剧情驱动';
+  }
+  if ((script?.metadata?.requiredKnowledge || []).length) {
+    return '调查叙事';
+  }
+  if ((script?.metadata?.requiredItems || []).length) {
+    return '资源博弈';
+  }
+  return '沉浸叙事';
+}
+
+function getScriptFeatureTags(script) {
+  const themeTokens = getScriptThemeTokens(script?.metadata?.theme).slice(1);
+
+  if (themeTokens.length) {
+    return themeTokens.slice(0, 4);
+  }
+
+  const fallback = [];
+  if ((script?.metadata?.requiredKnowledge || []).length) {
+    fallback.push('线索检定');
+  }
+  if ((script?.metadata?.requiredItems || []).length) {
+    fallback.push('关键道具');
+  }
+  if (script?.metadata?.storyCore) {
+    fallback.push('主线驱动');
+  }
+  fallback.push('沉浸叙事');
+
+  return Array.from(new Set(fallback)).slice(0, 4);
 }
 
 function getWarehouseCategoryKey(entry) {
@@ -673,6 +786,9 @@ export function PlaySelectPage() {
     }
   };
 
+  const scriptFeatureTags = getScriptFeatureTags(script);
+  const scriptPoster = getScriptPoster(script);
+
   if (loading) {
     return (
       <div
@@ -714,12 +830,6 @@ export function PlaySelectPage() {
               <span style={{ fontSize: '1.45rem' }}>入梦配置</span>
             </div>
             <div className="row" style={{ gap: '0.7rem' }}>
-              <ActionButton
-                label={scriptLoading ? '刷新中...' : '换一个随机剧本'}
-                onClick={refreshRandomScript}
-                disabled={scriptLoading || starting}
-                tone="amber"
-              />
               <img
                 alt="question"
                 src={images.question}
@@ -732,118 +842,209 @@ export function PlaySelectPage() {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: '0.9fr 0.92fr 1.18fr',
+              gridTemplateColumns: 'repeat(3, 30.8rem)',
               gap: '1rem',
               flex: 1,
               minHeight: 0,
             }}
           >
-            <div style={{ minHeight: 0, overflowY: 'auto', paddingRight: '0.2rem' }}>
-              <div style={{ ...panelStyle, padding: '1.1rem', minHeight: '100%' }}>
-                <SectionTitle title="剧本信息" extra={scriptLoading ? <Spin size="small" /> : null} />
-                {script ? (
-                  <>
-                    <div
-                      style={{
-                        fontSize: '1.36rem',
-                        fontWeight: 600,
-                        textAlign: 'left',
-                        lineHeight: 1.35,
-                      }}
-                    >
-                      {script.metadata?.title || '未命名剧本'}
-                    </div>
-                    <div
-                      style={{
-                        color: 'rgba(255,255,255,0.76)',
-                        fontSize: '0.84rem',
-                        lineHeight: 1.8,
-                        textAlign: 'left',
-                        marginTop: '0.9rem',
-                      }}
-                    >
-                      {script.metadata?.description || '暂无剧本简介'}
-                    </div>
+            <div style={{ minHeight: 0, paddingRight: '0.2rem' }}>
+              <div
+                style={{
+                  position: 'relative',
+                  minHeight: '100%',
+                  height: '100%',
+                  borderRadius: '1.8rem',
+                  overflow: 'hidden',
+                  border: '1px solid rgba(223, 186, 95, 0.34)',
+                  backgroundImage: `linear-gradient(180deg, rgba(12,11,9,0.14) 0%, rgba(12,11,9,0.36) 24%, rgba(12,11,9,0.72) 66%, rgba(8,8,7,0.94) 100%), url(${scriptPoster})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center center',
+                  boxShadow: '0 1.2rem 2.8rem rgba(0,0,0,0.28)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  padding: '1.35rem',
+                  boxSizing: 'border-box',
+                }}
+              >
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background:
+                      'linear-gradient(180deg, rgba(255,214,120,0.08), transparent 10%, transparent 82%, rgba(255,214,120,0.05))',
+                    pointerEvents: 'none',
+                  }}
+                />
 
-                    <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'minmax(0, 1fr)',
-                        gap: '0.65rem',
-                        marginTop: '1rem',
-                      }}
-                    >
-                      <MetricCard
-                        label="主题"
-                        value={getScriptThemeLabel(script.metadata?.theme)}
-                        accent="rgba(93, 79, 168, 0.28)"
-                      />
-                      <MetricCard
-                        label="难度"
-                        value={getScriptDifficultyLabel(script.metadata?.difficulty)}
-                        accent="rgba(148, 91, 39, 0.28)"
-                      />
-                      <MetricCard
-                        label="规模"
-                        value={getScriptSizeLabel(script.metadata?.totalNodes)}
-                        accent="rgba(28, 122, 59, 0.28)"
-                      />
-                      <MetricCard
-                        label="叙事模式"
-                        value="默认"
-                        accent="rgba(53, 65, 92, 0.28)"
-                      />
-                    </div>
+                <div
+                  style={{
+                    position: 'relative',
+                    zIndex: 1,
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    gap: '1rem',
+                  }}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
+                    <PosterPill
+                      label={script ? getScriptThemeLabel(script.metadata?.theme) : '随机剧本'}
+                    />
+                    <PosterPill
+                      label={`难度：${script ? getScriptDifficultyLabel(script.metadata?.difficulty) : '--'}`}
+                      tone="amber"
+                    />
+                    <PosterPill
+                      label={script ? getScriptSizeLabel(script.metadata?.totalNodes) : '--'}
+                      tone="blue"
+                    />
+                  </div>
 
-                    <div
-                      style={{
-                        marginTop: '1rem',
-                        padding: '0.95rem',
-                        borderRadius: '0.95rem',
-                        background: 'rgba(255,255,255,0.04)',
-                        border: '1px solid rgba(255,255,255,0.06)',
-                      }}
-                    >
+                  <button
+                    type="button"
+                    onClick={refreshRandomScript}
+                    disabled={scriptLoading || starting}
+                    style={{
+                      width: '3.35rem',
+                      height: '3.35rem',
+                      borderRadius: '999px',
+                      border: '1px solid rgba(223, 186, 95, 0.34)',
+                      background: 'rgba(12, 12, 10, 0.48)',
+                      color: '#eecf7a',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: scriptLoading || starting ? 'not-allowed' : 'pointer',
+                      opacity: scriptLoading || starting ? 0.66 : 1,
+                      backdropFilter: 'blur(8px)',
+                      boxShadow: '0 0.75rem 1.4rem rgba(0,0,0,0.18)',
+                      fontSize: '1.34rem',
+                    }}
+                    title="换一个随机剧本"
+                  >
+                    {scriptLoading ? <Spin size="small" /> : '↻'}
+                  </button>
+                </div>
+
+                <div style={{ flex: 1 }} />
+
+                <div
+                  style={{
+                    position: 'relative',
+                    zIndex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '1rem',
+                  }}
+                >
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.55rem' }}>
+                    {scriptFeatureTags.map((tag) => (
                       <div
+                        key={tag}
                         style={{
-                          color: '#fff',
-                          fontSize: '0.84rem',
-                          textAlign: 'left',
-                          marginBottom: '0.55rem',
+                          padding: '0.36rem 0.72rem',
+                          borderRadius: '999px',
+                          border: '1px solid rgba(233, 196, 94, 0.2)',
+                          background: 'rgba(48, 39, 13, 0.58)',
+                          color: '#f1d789',
+                          fontSize: '0.74rem',
+                          lineHeight: 1.2,
                         }}
                       >
-                        开局说明
+                        {tag}
                       </div>
-                      <div
-                        style={{
-                          color: 'rgba(255,255,255,0.68)',
-                          fontSize: '0.76rem',
-                          lineHeight: 1.75,
-                          textAlign: 'left',
-                        }}
-                      >
-                        左侧展示当前随机到的剧本摘要；中列选择已装备内容，右列选择仓库物品与技能。
-                        仓库物品与技能共用 10 个开局位，已穿戴装备单独选择。
-                      </div>
-                    </div>
-                  </>
-                ) : (
+                    ))}
+                  </div>
+
                   <div
                     style={{
-                      color: 'rgba(255,255,255,0.72)',
-                      fontSize: '0.84rem',
-                      lineHeight: 1.8,
+                      color: '#fffaf0',
+                      fontSize: '2.15rem',
+                      fontWeight: 700,
                       textAlign: 'left',
+                      lineHeight: 1.18,
+                      textShadow: '0 0.35rem 1.1rem rgba(0,0,0,0.32)',
                     }}
                   >
-                    当前没有可展示的随机剧本。
+                    {script?.metadata?.title || '当前没有可展示的随机剧本'}
                   </div>
-                )}
+
+                  <div
+                    style={{
+                      color: 'rgba(244, 232, 204, 0.82)',
+                      fontSize: '0.92rem',
+                      lineHeight: 1.85,
+                      textAlign: 'left',
+                      textShadow: '0 0.2rem 0.85rem rgba(0,0,0,0.24)',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 4,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      minHeight: '6.9rem',
+                    }}
+                  >
+                    {script?.metadata?.description || '请刷新剧本池后再次尝试。'}
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                      gap: '0.75rem',
+                    }}
+                  >
+                    <ScriptPosterMetric
+                      label="主题"
+                      value={script ? getScriptThemeLabel(script.metadata?.theme) : '--'}
+                    />
+                    <ScriptPosterMetric
+                      label="规模"
+                      value={script ? getScriptSizeLabel(script.metadata?.totalNodes) : '--'}
+                    />
+                    <ScriptPosterMetric
+                      label="叙事"
+                      value={script ? getScriptNarrativeLabel(script) : '--'}
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleStart}
+                    disabled={!script?.uuid || starting}
+                    style={{
+                      height: '4.2rem',
+                      borderRadius: '1.35rem',
+                      border: '1px solid rgba(233, 196, 94, 0.38)',
+                      background:
+                        starting
+                          ? 'linear-gradient(135deg, rgba(112, 91, 32, 0.92), rgba(91, 71, 23, 0.92))'
+                          : 'linear-gradient(135deg, rgba(123, 100, 36, 0.9), rgba(96, 74, 22, 0.9))',
+                      color: '#f9e2a2',
+                      fontSize: '1.42rem',
+                      fontWeight: 700,
+                      cursor: !script?.uuid || starting ? 'not-allowed' : 'pointer',
+                      opacity: !script?.uuid || starting ? 0.72 : 1,
+                      boxShadow: '0 1rem 2rem rgba(0,0,0,0.2)',
+                    }}
+                  >
+                    {starting ? '梦境载入中...' : '✦ 入梦启程'}
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div style={{ minHeight: 0, overflowY: 'auto', paddingRight: '0.2rem' }}>
-              <div style={{ ...panelStyle, padding: '1.1rem', marginBottom: '1rem' }}>
+            <div
+              style={{
+                minHeight: 0,
+                height: '100%',
+                paddingRight: '0.2rem',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+              }}
+            >
+              <div style={{ ...panelStyle, padding: '1.1rem', marginBottom: '1rem', flexShrink: 0 }}>
                 <SectionTitle title="当前配置" />
                 <div
                   style={{
@@ -906,17 +1107,39 @@ export function PlaySelectPage() {
                 </div>
               </div>
 
-              <div style={{ ...panelStyle, padding: '1.1rem', marginBottom: '1rem' }}>
-                <SectionTitle
-                  title="身上装备"
-                  extra={
-                    <div style={{ color: 'rgba(255,255,255,0.56)', fontSize: '0.76rem' }}>
-                      不占用 10 个仓库位
-                    </div>
-                  }
-                />
+              <div
+                style={{
+                  ...panelStyle,
+                  padding: '1.1rem',
+                  flex: 1,
+                  minHeight: 0,
+                  boxSizing: 'border-box',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflow: 'hidden',
+                }}
+              >
+                <div style={{ flexShrink: 0 }}>
+                  <SectionTitle
+                    title="身上装备"
+                    extra={
+                      <div style={{ color: 'rgba(255,255,255,0.56)', fontSize: '0.76rem' }}>
+                        不占用 10 个仓库位
+                      </div>
+                    }
+                  />
+                </div>
                 {equippedEntries.length ? (
-                  <div style={{ display: 'grid', gap: '0.8rem' }}>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gap: '0.8rem',
+                      flex: 1,
+                      minHeight: 0,
+                      overflowY: 'auto',
+                      paddingRight: '0.2rem',
+                    }}
+                  >
                     {equippedEntries.map((entry) => (
                       <SelectionCard
                         key={entry.uuid}
@@ -937,6 +1160,10 @@ export function PlaySelectPage() {
                 ) : (
                   <div
                     style={{
+                      flex: 1,
+                      minHeight: 0,
+                      overflowY: 'auto',
+                      paddingRight: '0.2rem',
                       color: 'rgba(255,255,255,0.72)',
                       fontSize: '0.82rem',
                       textAlign: 'left',
@@ -1057,21 +1284,6 @@ export function PlaySelectPage() {
             </div>
           </div>
 
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginTop: '1rem',
-              gap: '1rem',
-            }}
-          >
-            <ActionButton
-              label={starting ? '启动中...' : '开始'}
-              onClick={handleStart}
-              disabled={!script?.uuid || starting}
-            />
-          </div>
         </div>
 
         <img alt="eng-logo" src={images.eng_logo} className="login-eng-logo" />

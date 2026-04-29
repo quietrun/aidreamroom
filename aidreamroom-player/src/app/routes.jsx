@@ -10,6 +10,7 @@ import { SkillPage } from '../pages/skillPage';
 import { ItemPage } from '../pages/itemPage';
 import { WarehousePage } from '../pages/warehousePage';
 import { EntryDreamPage } from '../pages/enrtyDreamEntryPage';
+import { EntryDreamV2Page } from '../pages/entryDreamV2Page';
 import { PlaySelectPage } from '../pages/play/select';
 import { PlayHistoryPage } from '../pages/play/history';
 import { PlayMainPage } from '../pages/play/main';
@@ -18,6 +19,7 @@ import { RouteLoading } from '../components/common/RouteLoading';
 
 const MobileLoginPage = lazy(() => import('../mobile/pages/loginPage').then((module) => ({ default: module.MobileLoginPage })));
 const MobileMainPage = lazy(() => import('../mobile/pages/mainPage').then((module) => ({ default: module.MobileMainPage })));
+const MobileEntryDreamV2Page = lazy(() => import('../mobile/pages/entryDreamV2Page').then((module) => ({ default: module.MobileEntryDreamV2Page })));
 const MobileMePage = lazy(() => import('../mobile/pages/mePage').then((module) => ({ default: module.MobileMePage })));
 const MobileAccountPage = lazy(() => import('../mobile/pages/accountPage').then((module) => ({ default: module.MobileAccountPage })));
 const MobileRoleCreatePage = lazy(() => import('../mobile/pages/roleCreatePage').then((module) => ({ default: module.MobileRoleCreatePage })));
@@ -44,11 +46,13 @@ export function AppRoutes() {
         <Route path="/warehouse" element={<ProtectedRoute requireRole><WarehousePage /></ProtectedRoute>} />
         <Route path="/role/create" element={<ProtectedRoute><RoleCreatePage /></ProtectedRoute>} />
         <Route path="/entrydream" element={<ProtectedRoute requireRole><EntryDreamPage /></ProtectedRoute>} />
+        <Route path="/entrydream-v2" element={<ProtectedRoute requireRole><EntryDreamV2Page /></ProtectedRoute>} />
         <Route path="/play/select" element={<ProtectedRoute requireRole><PlaySelectPage /></ProtectedRoute>} />
         <Route path="/play/history" element={<ProtectedRoute requireRole><PlayHistoryPage /></ProtectedRoute>} />
         <Route path="/play/main/:id" element={<ProtectedRoute requireRole><PlayMainPage /></ProtectedRoute>} />
         <Route path="/mobile/login" element={<LoginRoute mobile><MobileLoginPage /></LoginRoute>} />
         <Route path="/mobile/main" element={<ProtectedRoute requireRole><MobileMainPage /></ProtectedRoute>} />
+        <Route path="/mobile/entrydream-v2" element={<ProtectedRoute requireRole><MobileEntryDreamV2Page /></ProtectedRoute>} />
         <Route path="/mobile/mepage" element={<ProtectedRoute><MobileMePage /></ProtectedRoute>} />
         <Route path="/mobile/account" element={<ProtectedRoute><MobileAccountPage /></ProtectedRoute>} />
         <Route path="/mobile/skills" element={<ProtectedRoute requireRole><MobileSkillPage /></ProtectedRoute>} />

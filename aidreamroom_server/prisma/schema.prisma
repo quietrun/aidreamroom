@@ -341,6 +341,7 @@ model Script {
   difficulty        String?  @db.VarChar(64)
   requiredItems     String?  @map("required_items") @db.LongText
   requiredKnowledge String?  @map("required_knowledge") @db.LongText
+  poster            String?  @db.LongText
   scriptFile        String?  @map("script_file") @db.LongText
   npcFile           String?  @map("npc_file") @db.LongText
   itemFile          String?  @map("item_file") @db.LongText
