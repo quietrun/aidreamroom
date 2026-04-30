@@ -2,7 +2,7 @@ import { Body, Controller, Get, Post } from '@nestjs/common';
 import { IsNotEmpty, IsString } from 'class-validator';
 
 import { generateUuid } from '../../common/utils/id.util';
-import { MinioStorageService } from '../storage/minio-storage.service';
+import { LocalStorageService } from '../storage/local-storage.service';
 
 class UploadDto {
   @IsString()
@@ -12,7 +12,7 @@ class UploadDto {
 
 @Controller()
 export class FilesController {
-  constructor(private readonly minioStorageService: MinioStorageService) {}
+  constructor(private readonly localStorageService: LocalStorageService) {}
 
   @Get()
   index() {
@@ -25,7 +25,7 @@ export class FilesController {
   @Post('upload')
   async upload(@Body() body: UploadDto) {
     const fileName = generateUuid();
-    const url = await this.minioStorageService.uploadBase64Image(fileName, body.file);
+    const url = await this.localStorageService.uploadBase64Image(fileName, body.file);
     return {
       result: 0,
       url,

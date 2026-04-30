@@ -537,6 +537,15 @@ class GameSocketSession {
       messages: this.messages,
       userId: this.userId,
       limitConfig: this.userRemainConfig,
+      scriptSummary: this.script
+        ? {
+            title: this.script.metadata.title,
+            description: this.script.metadata.description,
+            theme: this.script.metadata.theme,
+            totalNodes: this.script.metadata.totalEvents || this.script.metadata.totalNodes,
+            updateTime: this.script.updateTime ?? Date.now(),
+          }
+        : undefined,
     });
     this.logger.log(
       `[${this.sessionId}] saved runtime gameId=${this.gameId} turn=${this.state.turnCount} messages=${this.messages.length}`,

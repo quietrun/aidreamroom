@@ -13,7 +13,8 @@
     "start:dev": "nest start --watch",
     "prisma:generate": "prisma generate",
     "prisma:pull": "prisma db pull",
-    "scripts:import:desktop": "ts-node --transpile-only tools/import-desktop-scripts.ts"
+    "scripts:import:desktop": "ts-node --transpile-only tools/import-desktop-scripts.ts",
+    "scripts:migrate-posters:local": "ts-node --transpile-only tools/migrate-script-posters-local.ts"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.758.0",

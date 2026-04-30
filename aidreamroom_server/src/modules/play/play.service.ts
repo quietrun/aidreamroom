@@ -59,6 +59,27 @@ type UserRoleRow = {
   worlds: string | null;
 };
 
+type LatestGameRow = {
+  uuid: string;
+  creator: string;
+  updateTime: number | bigint | null;
+  plot_id: string | null;
+  character_id: string | null;
+  currentPlotId: string | null;
+  model_id: number | null;
+  currentItems: string | null;
+  image_list: string | null;
+  isFinish: boolean | number | null;
+  latest_plot_title: string | null;
+  latest_plot_description: string | null;
+  latest_plot_theme: string | null;
+  latest_total_nodes: number | null;
+  latest_objectives: string | null;
+  progress_percent: number | null;
+  turn_count: number | null;
+  latest_plot_updateTime: number | bigint | null;
+};
+
 @Injectable()
 export class PlayService implements OnModuleInit {
   private tableReady: Promise<void> | null = null;
@@ -107,6 +128,13 @@ export class PlayService implements OnModuleInit {
       messages: welcomeMessages,
       userId: creatorId,
       limitConfig: null,
+      scriptSummary: {
+        title: script.metadata.title,
+        description: script.metadata.description,
+        theme: script.metadata.theme,
+        totalNodes: script.metadata.totalEvents || script.metadata.totalNodes,
+        updateTime: script.updateTime ?? normalizeTimestamp(),
+      },
     });
 
     return {
@@ -117,28 +145,79 @@ export class PlayService implements OnModuleInit {
   }
 
   async latestGame(creatorId: string) {
-    const games = await this.db.query<PlayConfigRow>(
-      'select * from play_config where creator = ? order by updateTime desc',
+    await this.ensureRuntimeTables();
+
+    const rows = await this.db.query<LatestGameRow>(
+      `
+        select uuid, creator, updateTime, plot_id, character_id, currentPlotId,
+               model_id, currentItems, image_list, isFinish,
+               latest_plot_title, latest_plot_description, latest_plot_theme,
+               latest_total_nodes, latest_objectives, progress_percent,
+               turn_count, latest_plot_updateTime
+        from play_config
+        where creator = ?
+        order by updateTime desc
+        limit 1
+      `,
       [creatorId],
     );
 
-    for (const game of games) {
-      const config = await this.queryGameConfig(game.uuid);
-      if (!config.script || !config.runtime) {
-        continue;
-      }
-
+    const row = rows[0];
+    if (!row) {
       return {
-        result: 0,
-        game: config.game,
-        plot: config.plot,
-        script: config.script,
-        character: config.character,
+        result: -1,
       };
     }
 
+    const isFinish = Boolean(row.isFinish);
+    const progressPercent = isFinish ? 100 : row.progress_percent;
+    const scriptId = row.plot_id || '';
+
     return {
-      result: -1,
+      result: 0,
+      game: {
+        uuid: row.uuid,
+        creator: row.creator,
+        updateTime: this.normalizeTimestampValue(row.updateTime),
+        plot_id: scriptId,
+        script_id: scriptId,
+        character_id: row.character_id ?? '',
+        currentPlotId: row.currentPlotId ?? '',
+        model_id: row.model_id ?? 1,
+        currentItems: row.currentItems ?? '',
+        image_list: row.image_list ?? '',
+        isFinish,
+        mode: 'script',
+        progressPercent,
+        progress: progressPercent,
+        turnCount: Number(row.turn_count ?? 0),
+      },
+      plot: {
+        uuid: scriptId,
+        title: row.latest_plot_title ?? '',
+        descript: row.latest_plot_description ?? '',
+        plotTarget: row.latest_objectives ?? '',
+        worldType: row.latest_plot_theme ?? '',
+        updateTime: this.normalizeTimestampValue(row.latest_plot_updateTime),
+        type: row.latest_plot_theme ?? '',
+      },
+      script: {
+        uuid: scriptId,
+        metadata: {
+          title: row.latest_plot_title ?? '',
+          description: row.latest_plot_description ?? '',
+          totalNodes: Number(row.latest_total_nodes ?? 0),
+          totalEvents: Number(row.latest_total_nodes ?? 0),
+          theme: row.latest_plot_theme ?? '',
+        },
+      },
+      character: this.buildCharacterResponse({
+        id: '',
+        name: 'Traveler',
+        image: '',
+        info: { name: '' },
+        metrics: {} as Record<string, number>,
+      }),
     };
   }
 
@@ -303,6 +382,13 @@ export class PlayService implements OnModuleInit {
         messages,
         userId: String(game.creator ?? ''),
         limitConfig: null,
+        scriptSummary: {
+          title: script.metadata.title,
+          description: script.metadata.description,
+          theme: script.metadata.theme,
+          totalNodes: script.metadata.totalEvents || script.metadata.totalNodes,
+          updateTime: script.updateTime ?? normalizeTimestamp(),
+        },
       });
     } else {
       state = JSON.parse(runtime.state_json) as PlayGameState;
@@ -328,8 +414,15 @@ export class PlayService implements OnModuleInit {
     messages: PlayMessageRecord[];
     userId: string;
     limitConfig: Array<{ times: number; moduleId: number }> | null;
+    scriptSummary?: {
+      title: string;
+      description: string;
+      theme: string;
+      totalNodes: number;
+      updateTime: number;
+    };
   }) {
-    const { gameId, scriptId, state, messages, userId, limitConfig } = params;
+    const { gameId, scriptId, state, messages, userId, limitConfig, scriptSummary } = params;
     await this.ensureRuntimeTables();
 
     await this.db.replaceInto('play_runtime_table', {
@@ -342,7 +435,22 @@ export class PlayService implements OnModuleInit {
     });
 
     await this.db.execute(
-      'update play_config set currentPlotId = ?, currentItems = ?, updateTime = ?, isFinish = ? where uuid = ?',
+      `
+        update play_config
+        set currentPlotId = ?,
+            currentItems = ?,
+            updateTime = ?,
+            isFinish = ?,
+            progress_percent = ?,
+            turn_count = ?,
+            latest_objectives = ?,
+            latest_plot_title = coalesce(?, latest_plot_title),
+            latest_plot_description = coalesce(?, latest_plot_description),
+            latest_plot_theme = coalesce(?, latest_plot_theme),
+            latest_total_nodes = coalesce(?, latest_total_nodes),
+            latest_plot_updateTime = coalesce(?, latest_plot_updateTime)
+        where uuid = ?
+      `,
       [
         state.currentNodeId,
         messages.length > 0
@@ -350,6 +458,18 @@ export class PlayService implements OnModuleInit {
           : this.stringifyInventoryLabels(state).join(','),
         normalizeTimestamp(),
         state.status === 'finished',
+        this.calculateProgressPercent(
+          state,
+          Number(scriptSummary?.totalNodes ?? 0),
+          state.status === 'finished',
+        ),
+        state.turnCount,
+        state.currentObjectives.join(', '),
+        scriptSummary?.title ?? null,
+        scriptSummary?.description ?? null,
+        scriptSummary?.theme ?? null,
+        scriptSummary?.totalNodes ?? null,
+        scriptSummary?.updateTime ?? null,
         gameId,
       ],
     );
@@ -428,6 +548,30 @@ export class PlayService implements OnModuleInit {
       info: JSON.stringify(character.info),
       metrics: JSON.stringify(character.metrics),
     };
+  }
+
+  private calculateProgressPercent(
+    state: Partial<PlayGameState>,
+    totalNodes: number,
+    isFinish: boolean,
+  ) {
+    if (isFinish) {
+      return 100;
+    }
+
+    const visitedCount = Array.isArray(state.visitedNodeIds)
+      ? state.visitedNodeIds.length
+      : 0;
+    if (!Number.isFinite(totalNodes) || totalNodes <= 0 || visitedCount <= 0) {
+      return null;
+    }
+
+    return Math.max(0, Math.min(99, Math.round((visitedCount / totalNodes) * 100)));
+  }
+
+  private normalizeTimestampValue(value: number | bigint | string | null | undefined) {
+    const normalized = Number(value);
+    return Number.isFinite(normalized) ? normalized : 0;
   }
 
   private async loadCharacterProfile(userId: string): Promise<PlayCharacterProfile> {
@@ -553,9 +697,53 @@ export class PlayService implements OnModuleInit {
             PRIMARY KEY (\`session_id\`, \`turn_no\`)
           ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         `),
-      ]).then(() => undefined);
+      ])
+        .then(() => this.ensurePlayConfigSummaryColumns())
+        .then(() => undefined);
     }
 
     return this.tableReady;
+  }
+
+  private async ensurePlayConfigSummaryColumns() {
+    const existingRows = await this.db.query<{ COLUMN_NAME: string }>(
+      `
+        SELECT COLUMN_NAME
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'play_config'
+          AND COLUMN_NAME IN (
+            'latest_plot_title',
+            'latest_plot_description',
+            'latest_plot_theme',
+            'latest_total_nodes',
+            'latest_objectives',
+            'progress_percent',
+            'turn_count',
+            'latest_plot_updateTime'
+          )
+      `,
+    );
+    const existing = new Set(existingRows.map((row) => row.COLUMN_NAME));
+    const columnDefinitions = [
+      ['latest_plot_title', '`latest_plot_title` text NULL'],
+      ['latest_plot_description', '`latest_plot_description` longtext NULL'],
+      ['latest_plot_theme', '`latest_plot_theme` text NULL'],
+      ['latest_total_nodes', '`latest_total_nodes` int NULL'],
+      ['latest_objectives', '`latest_objectives` longtext NULL'],
+      ['progress_percent', '`progress_percent` int NULL'],
+      ['turn_count', '`turn_count` int NULL'],
+      ['latest_plot_updateTime', '`latest_plot_updateTime` bigint NULL'],
+    ] as const;
+    const missingDefinitions = columnDefinitions
+      .filter(([name]) => !existing.has(name))
+      .map(([, definition]) => `ADD COLUMN ${definition}`);
+
+    if (missingDefinitions.length) {
+      await this.db.execute(`
+        ALTER TABLE \`play_config\`
+        ${missingDefinitions.join(',\n        ')}
+      `);
+    }
   }
 }

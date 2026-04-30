@@ -1,5 +1,6 @@
 import { createHash } from 'crypto';
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
+import { copyFile, mkdir } from 'fs/promises';
 import { extname, join, resolve } from 'path';
 
 import { PrismaClient } from '@prisma/client';
@@ -40,14 +41,6 @@ type ExistingScriptRow = {
 };
 
 const prisma = new PrismaClient();
-const POSTER_MIME_TYPE_MAP: Record<string, string> = {
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.webp': 'image/webp',
-  '.gif': 'image/gif',
-  '.avif': 'image/avif',
-};
 const POSTER_FILE_NAMES = [
   'poster.png',
   'poster.jpg',
@@ -111,10 +104,24 @@ function findPosterPath(folderPath: string) {
   return fallback ? join(folderPath, fallback.name) : null;
 }
 
-function buildPosterDataUrl(path: string) {
-  const mimeType = POSTER_MIME_TYPE_MAP[extname(path).toLowerCase()] ?? 'application/octet-stream';
-  const base64 = readFileSync(path).toString('base64');
-  return `data:${mimeType};base64,${base64}`;
+function buildPublicUrl(relativePath: string) {
+  const baseUrl = process.env.LOCAL_PUBLIC_BASE_URL?.replace(/\/$/, '');
+  const normalizedPath = relativePath.split('\\').join('/');
+
+  if (baseUrl) {
+    return `${baseUrl}/uploads/${normalizedPath}`;
+  }
+
+  return `http://localhost:${process.env.PORT || 8380}/uploads/${normalizedPath}`;
+}
+
+async function storePosterFile(sourcePath: string, uuid: string, posterDir: string) {
+  const extension = extname(sourcePath).toLowerCase() || '.png';
+  const fileName = `${uuid}${extension}`;
+  const relativePath = `script-posters/${fileName}`;
+
+  await copyFile(sourcePath, resolve(posterDir, fileName));
+  return buildPublicUrl(relativePath);
 }
 
 function normalizeTimestamp(value: number | bigint | string | null | undefined, fallback: number) {
@@ -254,21 +261,6 @@ async function ensureScriptTable() {
   `);
 
   await ensurePosterColumn();
-
-  await prisma.$executeRawUnsafe(`
-    ALTER TABLE \`script_table\`
-    MODIFY COLUMN \`title\` text NOT NULL,
-    MODIFY COLUMN \`description\` longtext NULL,
-    MODIFY COLUMN \`theme\` longtext NULL,
-    MODIFY COLUMN \`difficulty\` varchar(64) NULL,
-    MODIFY COLUMN \`required_items\` longtext NULL,
-    MODIFY COLUMN \`required_knowledge\` longtext NULL,
-    MODIFY COLUMN \`poster\` longtext NULL,
-    MODIFY COLUMN \`script_file\` longtext NULL,
-    MODIFY COLUMN \`npc_file\` longtext NULL,
-    MODIFY COLUMN \`item_file\` longtext NULL,
-    MODIFY COLUMN \`map_file\` longtext NULL
-  `);
 }
 
 async function syncScripts(rootDir: string) {
@@ -291,6 +283,10 @@ async function syncScripts(rootDir: string) {
   let updatedCount = 0;
   let posterUpdatedCount = 0;
   const now = Date.now();
+  const uploadRoot = resolve(process.cwd(), process.env.LOCAL_UPLOAD_DIR ?? 'uploads');
+  const posterDir = resolve(uploadRoot, 'script-posters');
+
+  await mkdir(posterDir, { recursive: true });
 
   for (const bundle of bundles) {
     const existingRow = findExistingScriptRow(bundle, existingRows, claimedUuids);
@@ -298,14 +294,14 @@ async function syncScripts(rootDir: string) {
       claimedUuids.add(existingRow.uuid);
     }
 
-    const poster = bundle.posterPath
-      ? buildPosterDataUrl(bundle.posterPath)
-      : String(existingRow?.poster ?? '').trim();
     const totalEvents = Number(bundle.metadata.total_events ?? bundle.metadata.total_nodes ?? 0);
     const requiredItems = JSON.stringify(bundle.metadata.required_items ?? []);
     const requiredKnowledge = JSON.stringify(bundle.metadata.required_knowledge ?? []);
     const uuid = existingRow?.uuid ?? bundle.uuid;
     const createTime = normalizeTimestamp(existingRow?.createTime, now);
+    const poster = bundle.posterPath
+      ? await storePosterFile(bundle.posterPath, uuid, posterDir)
+      : String(existingRow?.poster ?? '').trim();
 
     if (poster && poster !== String(existingRow?.poster ?? '').trim()) {
       posterUpdatedCount += 1;

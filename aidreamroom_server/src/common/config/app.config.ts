@@ -45,4 +45,6 @@ export default registerAs('app', () => ({
   minioBucket: process.env.MINIO_BUCKET ?? 'aidreamroom',
   minioImageBucket: process.env.MINIO_IMAGE_BUCKET ?? 'images',
   minioPublicBaseUrl: process.env.MINIO_PUBLIC_BASE_URL ?? '',
+  localUploadDir: process.env.LOCAL_UPLOAD_DIR ?? 'uploads',
+  localPublicBaseUrl: process.env.LOCAL_PUBLIC_BASE_URL ?? '',
 }));
