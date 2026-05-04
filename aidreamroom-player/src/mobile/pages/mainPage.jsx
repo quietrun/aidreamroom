@@ -264,7 +264,7 @@ export function MobileMainPage() {
             </section>
           ) : null}
 
-          <div className="mobile-dream-home__version">AI Dreamroom Beta 0.9.2</div>
+          <div className="mobile-dream-home__version">AI Dreamroom Beta 1.0.0.20260504</div>
         </div>
       </div>
     </div>

@@ -67,6 +67,44 @@ function sanitizePlayLabel(value) {
   return String(value || '').replaceAll(',', '，').trim();
 }
 
+function buildPlayCurrentItem(entry, label, overrides = {}) {
+  const safeLabel = sanitizePlayLabel(label);
+  if (!entry || !safeLabel) {
+    return null;
+  }
+
+  return {
+    label: safeLabel,
+    entryId: entry.uuid || '',
+    entryType: entry.entryType || '',
+    itemId: entry.item?.uuid || '',
+    itemType: entry.item?.itemType || (entry.entryType === 'skill_card' ? 'skill_card' : ''),
+    itemSubType: entry.item?.itemSubType || '',
+    skillId: entry.skill?.uuid || '',
+    source: overrides.source || 'warehouse',
+    equipped: Boolean(overrides.equipped ?? entry.isEquipped),
+    slot: entry.equippedSlot || entry.item?.itemSubType || '',
+    quantity: Number(entry.quantity || 1),
+  };
+}
+
+function dedupePlayCurrentItems(items) {
+  const seen = new Set();
+  return items.filter((item) => {
+    if (!item?.label) {
+      return false;
+    }
+    const key = [item.entryId, item.entryType, item.itemId, item.skillId, item.label]
+      .filter(Boolean)
+      .join(':');
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
 function normalizeScriptToken(value) {
   return String(value || '').trim().toLowerCase().replaceAll(' ', '_');
 }
@@ -495,16 +533,17 @@ export function MobilePlaySelectPage() {
       return;
     }
 
-    const currentItems = Array.from(
-      new Set(
-        [
-          ...selectedEquipmentList.map((entry) =>
-            sanitizePlayLabel(buildEquipmentSelectionLabel(entry)),
-          ),
-          ...selectedLoadoutList.map((item) => sanitizePlayLabel(item.label)),
-        ].filter(Boolean),
+    const currentItems = dedupePlayCurrentItems([
+      ...selectedEquipmentList.map((entry) =>
+        buildPlayCurrentItem(entry, buildEquipmentSelectionLabel(entry), {
+          source: 'equipment',
+          equipped: true,
+        }),
       ),
-    );
+      ...selectedLoadoutList.map((item) =>
+        buildPlayCurrentItem(item.entry, item.label, { source: 'warehouse' }),
+      ),
+    ]);
 
     setStarting(true);
     const transitionPromise = startTransition();

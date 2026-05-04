@@ -743,29 +743,35 @@ export function MePage() {
   const renderSkillsPanel = () => {
     if (skillsStatus === 'loading') {
       return (
-        <section>
+        <section className="role-library-panel">
           <PanelSectionHeader title="技能库" meta="正在同步技能数据" />
-          <ContentPlaceholder loading text="技能库加载中" />
+          <div className="role-library-scroll">
+            <ContentPlaceholder loading text="技能库加载中" />
+          </div>
         </section>
       );
     }
 
     if (skillsStatus === 'error') {
       return (
-        <section>
+        <section className="role-library-panel">
           <PanelSectionHeader title="技能库" meta="加载失败" />
-          <ContentPlaceholder text="技能库加载失败，请稍后重试" />
+          <div className="role-library-scroll">
+            <ContentPlaceholder text="技能库加载失败，请稍后重试" />
+          </div>
         </section>
       );
     }
 
     return (
-      <section>
+      <section className="role-library-panel">
         <PanelSectionHeader title="技能库" meta={`已达成 ${skillSummary.availableCount}/${skillSummary.total}`} />
-        <div className="role-library-grid">
-          {skills.map((skill) => (
-            <SkillLibraryCard key={skill.uuid} skill={skill} />
-          ))}
+        <div className="role-library-scroll">
+          <div className="role-library-grid">
+            {skills.map((skill) => (
+              <SkillLibraryCard key={skill.uuid} skill={skill} />
+            ))}
+          </div>
         </div>
       </section>
     );
@@ -774,32 +780,38 @@ export function MePage() {
   const renderEquipmentPanel = () => {
     if (itemsStatus === 'loading') {
       return (
-        <section>
+        <section className="role-library-panel">
           <PanelSectionHeader title="装备库" meta="正在同步物品数据" />
-          <ContentPlaceholder loading text="装备库加载中" />
+          <div className="role-library-scroll">
+            <ContentPlaceholder loading text="装备库加载中" />
+          </div>
         </section>
       );
     }
 
     if (itemsStatus === 'error') {
       return (
-        <section>
+        <section className="role-library-panel">
           <PanelSectionHeader title="装备库" meta="加载失败" />
-          <ContentPlaceholder text="装备库加载失败，请稍后重试" />
+          <div className="role-library-scroll">
+            <ContentPlaceholder text="装备库加载失败，请稍后重试" />
+          </div>
         </section>
       );
     }
 
     return (
-      <section>
+      <section className="role-library-panel">
         <PanelSectionHeader
           title="装备库"
           meta={`共 ${itemSummary.total} 件 · 武器 ${itemSummary.weapons} · 装备 ${itemSummary.equipments} · 消耗品 ${itemSummary.consumables}`}
         />
-        <div className="role-library-grid">
-          {items.map((item) => (
-            <EquipmentLibraryCard key={item.uuid} item={item} />
-          ))}
+        <div className="role-library-scroll">
+          <div className="role-library-grid">
+            {items.map((item) => (
+              <EquipmentLibraryCard key={item.uuid} item={item} />
+            ))}
+          </div>
         </div>
       </section>
     );
@@ -808,24 +820,28 @@ export function MePage() {
   const renderWarehousePanel = () => {
     if (warehouseStatus === 'loading') {
       return (
-        <section>
+        <section className="role-library-panel">
           <PanelSectionHeader title="仓库" meta="正在同步仓库数据" />
-          <ContentPlaceholder loading text="仓库加载中" />
+          <div className="role-library-scroll">
+            <ContentPlaceholder loading text="仓库加载中" />
+          </div>
         </section>
       );
     }
 
     if (warehouseStatus === 'error') {
       return (
-        <section>
+        <section className="role-library-panel">
           <PanelSectionHeader title="仓库" meta="加载失败" />
-          <ContentPlaceholder text="仓库加载失败，请稍后重试" />
+          <div className="role-library-scroll">
+            <ContentPlaceholder text="仓库加载失败，请稍后重试" />
+          </div>
         </section>
       );
     }
 
     return (
-      <section>
+      <section className="role-library-panel">
         <PanelSectionHeader
           title="仓库"
           meta={`${warehouseSummary.usedSlots}/${warehouseSummary.capacity} 已用`}
@@ -840,10 +856,12 @@ export function MePage() {
             </button>
           )}
         />
-        <div className="role-library-grid">
-          {(warehouseProfile?.entries || []).map((entry) => (
-            <WarehouseEntryCard key={entry.uuid} entry={entry} />
-          ))}
+        <div className="role-library-scroll">
+          <div className="role-library-grid">
+            {(warehouseProfile?.entries || []).map((entry) => (
+              <WarehouseEntryCard key={entry.uuid} entry={entry} />
+            ))}
+          </div>
         </div>
       </section>
     );
@@ -961,14 +979,16 @@ export function MePage() {
               {renderLibraryTabs()}
             </nav>
             <div className="role-header-actions">
-              <button type="button" className="back" onClick={() => navigate('/main')}>
-                <span>‹</span>
+              <button type="button" className="desktop-return-home-button role-account-link" onClick={() => navigate('/account')}>
+                我的账号
+              </button>
+              <button type="button" className="desktop-return-home-button back" onClick={() => navigate('/main')}>
                 返回主页
               </button>
             </div>
           </header>
 
-          <div className="role-main-content">
+          <div className={`role-main-content ${shortcutTabs.some((tab) => tab.key === activeTab) ? 'is-library-view' : ''}`}>
             {renderActivePanel()}
           </div>
         </main>

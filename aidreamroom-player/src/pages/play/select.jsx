@@ -3,7 +3,7 @@ import { Spin, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 
 import defaultPoster from '@/default_poster.png';
-import loadingVideo from '@/loading.mp4';
+import loadingVideo from '@/loading-v2.mp4';
 import '../../styles/index.scss';
 import { LoadingVideoOverlay } from '../../components/common/LoadingVideoOverlay';
 import { HelpDialog } from '../../components/common/HelpDialog';
@@ -112,6 +112,44 @@ function buildEquipmentSelectionLabel(entry) {
 
 function sanitizePlayLabel(value) {
   return String(value || '').replaceAll(',', '，').trim();
+}
+
+function buildPlayCurrentItem(entry, label, overrides = {}) {
+  const safeLabel = sanitizePlayLabel(label);
+  if (!entry || !safeLabel) {
+    return null;
+  }
+
+  return {
+    label: safeLabel,
+    entryId: entry.uuid || '',
+    entryType: entry.entryType || '',
+    itemId: entry.item?.uuid || '',
+    itemType: entry.item?.itemType || (entry.entryType === 'skill_card' ? 'skill_card' : ''),
+    itemSubType: entry.item?.itemSubType || '',
+    skillId: entry.skill?.uuid || '',
+    source: overrides.source || 'warehouse',
+    equipped: Boolean(overrides.equipped ?? entry.isEquipped),
+    slot: entry.equippedSlot || entry.item?.itemSubType || '',
+    quantity: Number(entry.quantity || 1),
+  };
+}
+
+function dedupePlayCurrentItems(items) {
+  const seen = new Set();
+  return items.filter((item) => {
+    if (!item?.label) {
+      return false;
+    }
+    const key = [item.entryId, item.entryType, item.itemId, item.skillId, item.label]
+      .filter(Boolean)
+      .join(':');
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
 }
 
 function normalizeScriptToken(value) {
@@ -748,16 +786,17 @@ export function PlaySelectPage() {
       return;
     }
 
-    const currentItems = Array.from(
-      new Set(
-        [
-          ...selectedEquipmentList.map((entry) =>
-            sanitizePlayLabel(buildEquipmentSelectionLabel(entry)),
-          ),
-          ...selectedLoadoutList.map((item) => sanitizePlayLabel(item.label)),
-        ].filter(Boolean),
+    const currentItems = dedupePlayCurrentItems([
+      ...selectedEquipmentList.map((entry) =>
+        buildPlayCurrentItem(entry, buildEquipmentSelectionLabel(entry), {
+          source: 'equipment',
+          equipped: true,
+        }),
       ),
-    );
+      ...selectedLoadoutList.map((item) =>
+        buildPlayCurrentItem(item.entry, item.label, { source: 'warehouse' }),
+      ),
+    ]);
 
     setStarting(true);
     const transitionPromise = startTransition();
@@ -1010,9 +1049,11 @@ export function PlaySelectPage() {
 
                   <button
                     type="button"
+                    className="play-select-start-button"
                     onClick={handleStart}
                     disabled={!script?.uuid || starting}
                     style={{
+                      position: 'relative',
                       height: '4.2rem',
                       borderRadius: '1.35rem',
                       border: '1px solid rgba(233, 196, 94, 0.38)',
@@ -1026,9 +1067,10 @@ export function PlaySelectPage() {
                       cursor: !script?.uuid || starting ? 'not-allowed' : 'pointer',
                       opacity: !script?.uuid || starting ? 0.72 : 1,
                       boxShadow: '0 1rem 2rem rgba(0,0,0,0.2)',
+                      overflow: 'hidden',
                     }}
                   >
-                    {starting ? '梦境载入中...' : '✦ 入梦启程'}
+                    <span>{starting ? '梦境载入中...' : '✦ 入梦启程'}</span>
                   </button>
                 </div>
               </div>

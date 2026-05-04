@@ -224,7 +224,7 @@ export function MobileAccountPage() {
               <SettingRow
                 title="关于"
                 description="查看当前版本信息"
-                onClick={() => Modal.info({ title: '关于', content: 'AI Dreamroom Beta 0.9.2' })}
+                onClick={() => Modal.info({ title: '关于', content: 'AI Dreamroom Beta 1.0.0.20260504' })}
               />
               <SettingRow
                 title="注销账号"

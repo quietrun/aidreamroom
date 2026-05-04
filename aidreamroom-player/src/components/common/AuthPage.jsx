@@ -1,14 +1,11 @@
 import { useState } from 'react';
-import { Checkbox, Input, message } from 'antd';
+import { Checkbox, Input, message, Spin } from 'antd';
 import md5 from 'js-md5';
 import { useNavigate } from 'react-router-dom';
 
 import { images, ErrorMessage } from '../../constant';
 import { API } from '../../utils/API';
 import { commitLoginSession } from '../../utils/session';
-import { AidrIntroduction } from './AidrIntroduction';
-import iconForgetForbidden from '@/icon_forget_forbidden.png';
-import iconRegisterForbidden from '@/icon_register_forbidden.png';
 import iconWaiting from '@/icon_waiting.png';
 
 function MobileModeButton({ label, active, onClick }) {
@@ -41,9 +38,11 @@ function MobileField({ label, trailing = null, children }) {
     <div className="mobile-auth-page__field">
       <div className="mobile-auth-page__fieldhead">
         <span>{label}</span>
+      </div>
+      <div className="mobile-auth-page__fieldbody">
+        {children}
         {trailing}
       </div>
-      <div className="mobile-auth-page__fieldbody">{children}</div>
     </div>
   );
 }
@@ -64,6 +63,53 @@ function MobileToggleRow({ label, description, checked, onToggle }) {
   );
 }
 
+function PcModeButton({ label, active, onClick }) {
+  return (
+    <button
+      type="button"
+      className={`pc-auth-page__modebutton${active ? ' is-active' : ''}`}
+      onClick={onClick}
+    >
+      {label}
+    </button>
+  );
+}
+
+function PcSegmentButton({ label, icon, active, onClick }) {
+  return (
+    <button
+      type="button"
+      className={`pc-auth-page__segmentbutton${active ? ' is-active' : ''}`}
+      onClick={onClick}
+    >
+      <img alt="" src={icon} />
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function PcField({ label, trailing = null, children }) {
+  return (
+    <div className="pc-auth-page__field">
+      <span>{label}</span>
+      <div className="pc-auth-page__fieldbody">
+        {children}
+        {trailing}
+      </div>
+    </div>
+  );
+}
+
+function PcCheckRow({ label, checked, onChange, action = null }) {
+  return (
+    <div className="pc-auth-page__checkrow">
+      <Checkbox checked={checked} onChange={(event) => onChange(event.target.checked)} />
+      <span>{label}</span>
+      {action}
+    </div>
+  );
+}
+
 export function AuthPage({ mobile = false }) {
   const navigate = useNavigate();
   const [recordUser, setRecordUser] = useState(false);
@@ -78,6 +124,7 @@ export function AuthPage({ mobile = false }) {
   const [countTime, setCountTime] = useState(60);
   const [accountType, setAccountType] = useState(1);
   const [showRegisterList, setShowRegisterList] = useState(false);
+  const [authSubmitting, setAuthSubmitting] = useState(false);
 
   const startCodeCount = () => {
     setStartCount(true);
@@ -119,6 +166,10 @@ export function AuthPage({ mobile = false }) {
   };
 
   const login = async () => {
+    if (authSubmitting) {
+      return;
+    }
+    setAuthSubmitting(true);
     try {
       const response = await API.EMAIL_LOGIN({
         email,
@@ -134,10 +185,16 @@ export function AuthPage({ mobile = false }) {
       navigate(mobile ? '/mobile/main' : '/main', { replace: true });
     } catch (error) {
       console.error(error);
+    } finally {
+      setAuthSubmitting(false);
     }
   };
 
   const register = async () => {
+    if (authSubmitting) {
+      return;
+    }
+    setAuthSubmitting(true);
     try {
       const response = await API.EMAIL_REGISTER({
         email,
@@ -154,10 +211,16 @@ export function AuthPage({ mobile = false }) {
       navigate(mobile ? '/mobile/main' : '/main', { replace: true });
     } catch (error) {
       console.error(error);
+    } finally {
+      setAuthSubmitting(false);
     }
   };
 
   const resetPassword = async () => {
+    if (authSubmitting) {
+      return;
+    }
+    setAuthSubmitting(true);
     try {
       const response = await API.EMAIL_EDIT_PASSWORD({
         email,
@@ -173,20 +236,32 @@ export function AuthPage({ mobile = false }) {
       navigate(mobile ? '/mobile/main' : '/main', { replace: true });
     } catch (error) {
       console.error(error);
+    } finally {
+      setAuthSubmitting(false);
     }
   };
 
   const joinWaitingList = async () => {
+    if (authSubmitting) {
+      return;
+    }
     if (!isAgree) {
       message.warning('请勾选上方提示后继续');
       return;
     }
-    const { result } = await API.USER_apply_reigset({ account: email });
-    if (result === 0) {
-      message.info('成功加入队列，在您的账号可以注册时会以短信验证码或短信的方式进行通知');
-      return;
+    setAuthSubmitting(true);
+    try {
+      const { result } = await API.USER_apply_reigset({ account: email });
+      if (result === 0) {
+        message.info('成功加入队列，在您的账号可以注册时会以短信验证码或短信的方式进行通知');
+        return;
+      }
+      message.info('您的账号还在排队等待中，请耐心等待注册名额开放。');
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setAuthSubmitting(false);
     }
-    message.info('您的账号还在排队等待中，请耐心等待注册名额开放。');
   };
 
   const getEmailCode = async () => {
@@ -213,6 +288,9 @@ export function AuthPage({ mobile = false }) {
   };
 
   const submit = () => {
+    if (authSubmitting) {
+      return;
+    }
     if (isRegister) {
       if (!isAgree) {
         message.warning('请同意《用户使用协议》');
@@ -240,7 +318,16 @@ export function AuthPage({ mobile = false }) {
     login();
   };
 
+  const submitDisabled = authSubmitting || (showRegisterList ? !isAgree : !isForget && !isAgree);
+
   if (mobile) {
+    const mobileMode = showRegisterList
+      ? 'waiting'
+      : isForget
+        ? 'forget'
+        : isRegister
+          ? 'register'
+          : 'login';
     const title = showRegisterList
       ? '加入等待队列'
       : isForget
@@ -249,12 +336,12 @@ export function AuthPage({ mobile = false }) {
           ? '创建账号'
           : '欢迎回来';
     const subtitle = showRegisterList
-      ? '当前注册名额较紧张，先登记联系方式，我们会按顺序通知。'
+      ? '名额开放后第一时间通知你。'
       : isForget
-        ? '通过验证码重设密码，重新接回你的梦境档案。'
+        ? '通过验证码重设密码。'
         : isRegister
-          ? '创建你的专属账号，准备进入 AI 梦之屋。'
-          : '输入账号信息，继续你的梦境旅程。';
+          ? '创建账号，进入 AI 梦之家。'
+          : '继续你的梦境旅程。';
     const actionLabel = showRegisterList
       ? '加入等待队列'
       : isRegister
@@ -265,28 +352,27 @@ export function AuthPage({ mobile = false }) {
 
     return (
       <div className="mobile-app">
-        <div className="main-container mobile-auth-page">
-          <div className="mobile-auth-page__scroll">
-            <header className="mobile-auth-page__header">
-              <div className="mobile-auth-page__brand">
-                <img alt="logo" className="mobile-auth-page__logo" src={images.logo} />
-                <span>AI Dreamroom</span>
-              </div>
-            </header>
+        <div className={`main-container mobile-auth-page mobile-auth-page--${mobileMode}`}>
+          <div className="mobile-auth-page__statusbar" aria-hidden="true">
+            <span>9:41</span>
+            <div className="mobile-auth-page__statusicons">
+              <i />
+              <i />
+              <i />
+            </div>
+          </div>
 
-            <section className="mobile-auth-page__hero">
-              <span className="mobile-auth-page__eyebrow">
-                {showRegisterList
-                  ? 'Waiting Queue'
-                  : isRegister
-                    ? 'Register'
-                    : isForget
-                      ? 'Reset Password'
-                      : 'Login'}
-              </span>
-              <h1>{title}</h1>
-              <p>{subtitle}</p>
-            </section>
+          <header className="mobile-auth-page__brand">
+            <span>AI DREAMROOM</span>
+            <strong>梦之家</strong>
+          </header>
+
+          {showRegisterList ? (
+            <img alt="艾达" className="mobile-auth-page__waiting-woman" src={images.aidr_women} />
+          ) : null}
+
+          <section className="mobile-auth-page__sheet">
+            <div className="mobile-auth-page__handle" aria-hidden="true" />
 
             {!showRegisterList ? (
               <div className="mobile-auth-page__modegroup">
@@ -309,7 +395,7 @@ export function AuthPage({ mobile = false }) {
                   }}
                 />
                 <MobileModeButton
-                  label="找回密码"
+                  label="找回"
                   active={isForget}
                   onClick={() => {
                     setShowRegisterList(false);
@@ -320,510 +406,368 @@ export function AuthPage({ mobile = false }) {
               </div>
             ) : null}
 
-            <section className="mobile-auth-page__panel">
-              {!showRegisterList ? (
-                <>
-                  <div className="mobile-auth-page__segmentgroup">
-                    <MobileSegmentButton
-                      label="手机号码"
-                      icon={
-                        accountType !== 1
-                          ? images.icon_phone_select
-                          : images.icon_phone_selected
-                      }
-                      active={accountType === 1}
-                      onClick={() => setAccountType(1)}
-                    />
-                    <MobileSegmentButton
-                      label="电子邮箱"
-                      icon={
-                        accountType !== 0
-                          ? images.icon_email_select
-                          : images.icon_email_selected
-                      }
-                      active={accountType === 0}
-                      onClick={() => setAccountType(0)}
-                    />
-                  </div>
+            <div className="mobile-auth-page__intro">
+              <h1>{title}</h1>
+              <p>{subtitle}</p>
+            </div>
 
-                  <div className="mobile-auth-page__fieldgroup">
-                    <MobileField
-                      label={accountType === 1 ? '手机号码' : '电子邮箱'}
-                      trailing={
-                        isForget || isRegister ? (
-                          <button
-                            type="button"
-                            className={`mobile-auth-page__codebutton${startCount ? ' is-counting' : ''}`}
-                            onClick={getEmailCode}
-                          >
-                            {startCount ? `${countTime}s` : '获取验证码'}
-                          </button>
-                        ) : null
-                      }
-                    >
+            {!showRegisterList ? (
+              <>
+                <div className="mobile-auth-page__segmentgroup">
+                  <MobileSegmentButton
+                    label="手机号码"
+                    icon={
+                      accountType !== 1
+                        ? images.icon_phone_select
+                        : images.icon_phone_selected
+                    }
+                    active={accountType === 1}
+                    onClick={() => setAccountType(1)}
+                  />
+                  <MobileSegmentButton
+                    label="电子邮箱"
+                    icon={
+                      accountType !== 0
+                        ? images.icon_email_select
+                        : images.icon_email_selected
+                    }
+                    active={accountType === 0}
+                    onClick={() => setAccountType(0)}
+                  />
+                </div>
+
+                <div className="mobile-auth-page__fieldgroup">
+                  <MobileField
+                    label={accountType === 1 ? '手机号码' : '电子邮箱'}
+                    trailing={
+                      isForget || isRegister ? (
+                        <button
+                          type="button"
+                          className={`mobile-auth-page__codebutton${startCount ? ' is-counting' : ''}`}
+                          onClick={getEmailCode}
+                        >
+                          {startCount ? `${countTime}s` : '获取验证码'}
+                        </button>
+                      ) : null
+                    }
+                  >
+                    <Input
+                      bordered={false}
+                      className="mobile-auth-page__inputcontrol"
+                      placeholder={accountType === 1 ? '请输入手机号码' : '请输入电子邮箱'}
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                    />
+                  </MobileField>
+
+                  {isForget || isRegister ? (
+                    <MobileField label={accountType === 1 ? '验证码' : '邮箱验证码'}>
                       <Input
                         bordered={false}
                         className="mobile-auth-page__inputcontrol"
-                        placeholder={
-                          accountType === 1 ? '请输入手机号码' : '请输入电子邮箱'
-                        }
-                        value={email}
-                        onChange={(event) => setEmail(event.target.value)}
+                        placeholder="请输入验证码"
+                        value={emailCode}
+                        onChange={(event) => setEmailCode(event.target.value)}
                       />
                     </MobileField>
+                  ) : null}
 
-                    {isForget || isRegister ? (
-                      <MobileField
-                        label={accountType === 1 ? '短信验证码' : '邮箱验证码'}
-                      >
-                        <Input
-                          bordered={false}
-                          className="mobile-auth-page__inputcontrol"
-                          placeholder="请输入验证码"
-                          value={emailCode}
-                          onChange={(event) => setEmailCode(event.target.value)}
-                        />
-                      </MobileField>
-                    ) : null}
+                  <MobileField label={isForget ? '新密码' : '登录密码'}>
+                    <Input.Password
+                      bordered={false}
+                      className="mobile-auth-page__inputcontrol"
+                      placeholder="请输入密码"
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                    />
+                  </MobileField>
 
-                    <MobileField label="登录密码">
+                  {isForget || isRegister ? (
+                    <MobileField label="确认密码">
                       <Input.Password
                         bordered={false}
                         className="mobile-auth-page__inputcontrol"
-                        placeholder="请输入密码"
-                        value={password}
-                        onChange={(event) => setPassword(event.target.value)}
+                        placeholder="请再次输入密码"
+                        value={passwordAgain}
+                        onChange={(event) => setPasswordAgain(event.target.value)}
                       />
                     </MobileField>
-
-                    {isForget || isRegister ? (
-                      <MobileField label="再次确认密码">
-                        <Input.Password
-                          bordered={false}
-                          className="mobile-auth-page__inputcontrol"
-                          placeholder="请再次输入密码"
-                          value={passwordAgain}
-                          onChange={(event) => setPasswordAgain(event.target.value)}
-                        />
-                      </MobileField>
-                    ) : null}
-                  </div>
-
-                  {!isForget && !isRegister ? (
-                    <MobileToggleRow
-                      label="记住账号"
-                      description="15 天内自动登录，适合常用设备。"
-                      checked={recordUser}
-                      onToggle={() => setRecordUser((current) => !current)}
-                    />
                   ) : null}
+                </div>
 
-                  {!isForget ? (
-                    <MobileToggleRow
-                      label={
-                        isRegister
-                          ? '注册即同意用户使用协议'
-                          : '登录即同意用户使用协议'
-                      }
-                      description="继续即代表你已阅读并接受相关条款。"
-                      checked={isAgree}
-                      onToggle={() => setIsAgree((current) => !current)}
-                    />
-                  ) : null}
-                </>
-              ) : (
-                <>
-                  <div className="mobile-auth-page__waitingnote">
-                    <img alt="waiting" src={iconWaiting} />
-                    <div>
-                      <strong>当前注册人数较多</strong>
-                      <span>
-                        留下你的手机或邮箱，注册资格开放后我们会第一时间通知你。
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="mobile-auth-page__fieldgroup">
-                    <MobileField label="手机号码 / 电子邮箱">
-                      <Input
-                        bordered={false}
-                        className="mobile-auth-page__inputcontrol"
-                        placeholder="请输入可接收通知的联系方式"
-                        value={email}
-                        onChange={(event) => setEmail(event.target.value)}
-                      />
-                    </MobileField>
-                  </div>
-
+                {!isForget && !isRegister ? (
                   <MobileToggleRow
-                    label="同意加入等待队列"
-                    description="我们只会在资格开放时联系你，不会频繁打扰。"
+                    label="15 天内自动登录"
+                    checked={recordUser}
+                    onToggle={() => setRecordUser((current) => !current)}
+                  />
+                ) : null}
+
+                {!isForget ? (
+                  <MobileToggleRow
+                    label={isRegister ? '注册即同意《用户使用协议》' : '登录即同意《用户使用协议》'}
                     checked={isAgree}
                     onToggle={() => setIsAgree((current) => !current)}
                   />
+                ) : null}
+              </>
+            ) : (
+              <>
+                <div className="mobile-auth-page__fieldgroup">
+                  <MobileField label="手机号码 / 电子邮箱">
+                    <Input
+                      bordered={false}
+                      className="mobile-auth-page__inputcontrol"
+                      placeholder="请输入可接收通知的联系方式"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                    />
+                  </MobileField>
+                </div>
 
-                  <button
-                    type="button"
-                    className="mobile-auth-page__secondarybutton"
-                    onClick={() => {
-                      setShowRegisterList(false);
-                      setIsRegister(true);
-                      setIsForget(false);
-                    }}
-                  >
-                    返回注册页
-                  </button>
-                </>
-              )}
+                <MobileToggleRow
+                  label="同意加入队列，开放后通知我"
+                  checked={isAgree}
+                  onToggle={() => setIsAgree((current) => !current)}
+                />
+              </>
+            )}
 
-              <button
-                type="button"
-                className="mobile-auth-page__submitbutton"
-                onClick={showRegisterList ? joinWaitingList : submit}
-              >
-                {actionLabel}
-              </button>
-            </section>
-          </div>
+            <button
+              type="button"
+              className={`mobile-auth-page__submitbutton${showRegisterList ? ' is-waiting' : ''}${authSubmitting ? ' is-loading' : ''}`}
+              onClick={showRegisterList ? joinWaitingList : submit}
+              disabled={submitDisabled}
+            >
+              {authSubmitting ? <Spin size="small" /> : null}
+              <span>{authSubmitting ? '处理中' : actionLabel}</span>
+              {!authSubmitting && !showRegisterList ? <span aria-hidden="true">→</span> : null}
+            </button>
+
+            {!showRegisterList && !isRegister && !isForget ? (
+              <>
+                <div className="mobile-auth-page__divider"><span>或</span></div>
+                <button type="button" className="mobile-auth-page__wechatbutton">
+                  <img alt="" src={images.wx_login} />
+                  <span>微信快捷登录</span>
+                </button>
+              </>
+            ) : null}
+
+            <p className="mobile-auth-page__terms">
+              继续即代表您已阅读并接受 <button type="button">隐私政策</button> 及 <button type="button">服务条款</button>
+            </p>
+          </section>
         </div>
       </div>
     );
   }
 
+  const pcModeLabel = showRegisterList
+    ? 'WAITING QUEUE'
+    : isForget
+      ? 'RESET PASSWORD'
+      : isRegister
+        ? 'CREATE ACCOUNT'
+        : 'SIGN IN';
+  const pcTitle = showRegisterList
+    ? '加入等待队列'
+    : isForget
+      ? '找回密码'
+      : isRegister
+        ? '创建账号'
+        : '欢迎回来';
+  const pcActionLabel = showRegisterList
+    ? '加入等待队列'
+    : isForget
+      ? '重置密码'
+      : isRegister
+        ? '立即注册'
+        : '立即登录';
+
+  const resetMode = (nextMode) => {
+    setShowRegisterList(false);
+    setIsRegister(nextMode === 'register');
+    setIsForget(nextMode === 'forget');
+  };
+
   return (
-    <div>
-      <div className="main-container">
-        <img alt="logo" className="login-logo" src={images.logo} />
+    <div className="main-container pc-auth-page">
+      <section className="pc-auth-page__brandpane">
+        <p className="pc-auth-page__eyebrow">AI DREAMROOM · 梦之家</p>
+        <h1>踏入你的<br />专属梦境</h1>
+        <p className="pc-auth-page__copy">
+          由 AI 驱动的沉浸式角色扮演世界，每一次对话都是独一无二的冒险。
+        </p>
+        <div className="pc-auth-page__mascot">
+          <img alt="AIDR" className="pc-auth-page__aidrmark" src={images.AIDR} />
+          <img alt="艾达" className="pc-auth-page__woman" src={images.aidr_women} />
+        </div>
+        <p className="pc-auth-page__caption">AI-POWERED INTERACTIVE ROLEPLAY</p>
+      </section>
+
+      <section className={`pc-auth-page__panel${showRegisterList ? ' is-waiting' : ''}`}>
         {!showRegisterList ? (
-          <div className="login-container">
-            <div className="normal-row" style={{ width: '23rem' }}>
-              <div
-                style={{ width: '7rem', textAlign: 'left', cursor: 'pointer' }}
-                onClick={() => {
-                  setIsRegister(false);
-                  setIsForget(false);
-                }}
-              >
-                <img alt="back" src={images.icon_back} title="返回" onClick={openMainPage} />
-              </div>
-              <span
-                style={{
-                  fontSize: '1.1rem',
-                  width: '7rem',
-                  textAlign: 'center',
-                }}
-              >
-                {isForget ? '忘记密码' : isRegister ? '注册' : '登录'}
-              </span>
-              <div style={{ width: '7rem', textAlign: 'right', cursor: 'pointer' }}>
-                <img
-                  alt="forget"
-                  src={!isForget ? images.icon_forget_psw : images.icon_forget_psw_selected}
-                  title="忘记密码"
-                  onClick={startForget}
-                />
-                <img
-                  alt="register"
-                  src={!isRegister ? images.icon_register : images.icon_register_selected}
-                  title="注册"
-                  style={{ marginLeft: '0.8rem' }}
-                  onClick={startRegister}
-                />
-              </div>
+          <div className="pc-auth-page__modegroup">
+            <PcModeButton label="登录" active={!isRegister && !isForget} onClick={() => resetMode('login')} />
+            <PcModeButton label="注册" active={isRegister} onClick={() => resetMode('register')} />
+            <PcModeButton label="找回密码" active={isForget} onClick={() => resetMode('forget')} />
+          </div>
+        ) : null}
+
+        <p className="pc-auth-page__panel-eyebrow">{pcModeLabel}</p>
+        <h2>{pcTitle}</h2>
+
+        {!showRegisterList ? (
+          <>
+            <div className="pc-auth-page__segmentgroup">
+              <PcSegmentButton
+                label="手机号码"
+                icon={accountType === 1 ? images.icon_phone_selected : images.icon_phone_select}
+                active={accountType === 1}
+                onClick={() => setAccountType(1)}
+              />
+              <PcSegmentButton
+                label="电子邮箱"
+                icon={accountType === 0 ? images.icon_email_selected : images.icon_email_select}
+                active={accountType === 0}
+                onClick={() => setAccountType(0)}
+              />
             </div>
-            <div className="normal-row" style={{ width: '12.7rem', marginTop: '1.5rem' }}>
-              <div
-                style={{
-                  width: '100%',
-                  height: '2rem',
-                  background: `url(${images.phone_bg})`,
-                  backgroundPosition: 'center center',
-                  backgroundSize: '12.7rem 2rem',
-                  fontSize: '0.8rem',
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  color: '#fff',
-                }}
+
+            <div className="pc-auth-page__fieldgroup">
+              <PcField
+                label={accountType === 1 ? '手机号码' : '电子邮箱'}
+                trailing={
+                  isRegister || isForget ? (
+                    <button
+                      type="button"
+                      className="pc-auth-page__codebutton"
+                      onClick={getEmailCode}
+                    >
+                      {startCount ? `${countTime}s` : '获取验证码'}
+                    </button>
+                  ) : null
+                }
               >
-                <div
-                  style={{
-                    width: '50%',
-                    height: '2rem',
-                    background: accountType === 1 ? `url(${images.phone_left_bg})` : null,
-                    backgroundSize: accountType === 1 ? '100% 100%' : null,
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    cursor: 'pointer',
-                  }}
-                  onClick={() => setAccountType(1)}
-                >
-                  <img
-                    alt="phone"
-                    src={
-                      accountType !== 1
-                        ? images.icon_phone_select
-                        : images.icon_phone_selected
-                    }
-                    style={{ width: '0.9rem', height: '0.9rem', marginRight: '0.2rem' }}
-                  />
-                  <span
-                    style={{
-                      color: accountType === 1 ? '#000' : '#fff',
-                    }}
-                  >
-                    手机号码
-                  </span>
-                </div>
-                <div
-                  style={{
-                    width: '50%',
-                    height: '2rem',
-                    background: accountType === 0 ? `url(${images.phone_right_bg})` : null,
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    color: accountType === 0 ? '#000' : '#fff',
-                    cursor: 'pointer',
-                  }}
-                  onClick={() => setAccountType(0)}
-                >
-                  <img
-                    alt="email"
-                    src={
-                      accountType !== 0
-                        ? images.icon_email_select
-                        : images.icon_email_selected
-                    }
-                    style={{ width: '0.95rem', height: '0.8rem', marginRight: '0.3rem' }}
-                  />
-                  <span
-                    style={{
-                      color: accountType === 0 ? '#000' : '#fff',
-                    }}
-                  >
-                    电子邮箱
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div
-              style={{
-                flexDirection: 'column',
-                display: 'flex',
-                width: '100%',
-                marginTop: '1.5rem',
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-              >
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span>{accountType === 1 ? '手机号码' : '电子邮箱'}</span>
+                <Input
+                  bordered={false}
+                  placeholder={accountType === 1 ? '请输入手机号码' : '请输入电子邮箱'}
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                />
+              </PcField>
+
+              {(isRegister || isForget) ? (
+                <PcField label={accountType === 1 ? '短信验证码' : '邮箱验证码'}>
                   <Input
                     bordered={false}
-                    placeholder={accountType === 1 ? '手机号码' : '电子邮箱'}
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                  />
-                </div>
-                {(isForget || isRegister) && (
-                  <div>
-                    {!startCount ? (
-                      <img
-                        alt="code"
-                        src={images.icon_get_email_code}
-                        style={{ width: '2.2rem' }}
-                        onClick={getEmailCode}
-                        title="发送验证码"
-                      />
-                    ) : (
-                      <div
-                        style={{
-                          width: '2.2rem',
-                          height: '2.2rem',
-                          backgroundColor: '#fff',
-                          borderRadius: '2.2rem',
-                          justifyContent: 'center',
-                          alignItems: 'center',
-                          display: 'flex',
-                        }}
-                      >
-                        <span style={{ color: '#000', fontWeight: 'bold' }}>
-                          {countTime}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-              {(isForget || isRegister) && (
-                <>
-                  <span style={{ marginTop: '1rem' }}>
-                    {accountType === 1 ? '输入手机验证码' : '输入邮箱验证码'}
-                  </span>
-                  <Input
-                    bordered={false}
-                    placeholder="验证码"
+                    placeholder="请输入验证码"
                     value={emailCode}
                     onChange={(event) => setEmailCode(event.target.value)}
                   />
-                </>
-              )}
-              <span style={{ marginTop: '1.5rem' }}>输入密码</span>
-              <Input.Password
-                bordered={false}
-                placeholder="输入密码"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-              />
-              {(isForget || isRegister) && (
-                <>
-                  <span style={{ marginTop: '1rem' }}>再次输入密码</span>
+                </PcField>
+              ) : null}
+
+              <PcField label={isForget ? '新密码' : '登录密码'}>
+                <Input.Password
+                  bordered={false}
+                  placeholder="请输入密码"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                />
+              </PcField>
+
+              {(isRegister || isForget) ? (
+                <PcField label="确认密码">
                   <Input.Password
                     bordered={false}
-                    placeholder="输入密码"
+                    placeholder="请再次输入密码"
                     value={passwordAgain}
                     onChange={(event) => setPasswordAgain(event.target.value)}
                   />
-                </>
-              )}
+                </PcField>
+              ) : null}
             </div>
-            {!isForget && !isRegister && (
-              <div
-                style={{
-                  flexDirection: 'row',
-                  display: 'flex',
-                  alignContent: 'center',
-                  justifyContent: 'space-between',
-                  width: '100%',
-                  marginTop: '1.5rem',
-                }}
-              >
-                <span>记住账号 (15天内自动登录)</span>
-                <Checkbox
-                  checked={recordUser}
-                  onChange={(event) => setRecordUser(event.target.checked)}
-                />
-              </div>
-            )}
-            {!isForget && !isRegister && (
-              <div className="login-btn-group">
-                <img alt="wechat" src={images.wx_login} />
-              </div>
-            )}
-            {!isForget && (
-              <div
-                style={{
-                  flexDirection: 'row',
-                  display: 'flex',
-                  alignContent: 'center',
-                  justifyContent: 'space-between',
-                  width: '100%',
-                  marginTop: '1.5rem',
-                }}
-              >
-                <span>
-                  {isRegister ? '注册 即同意《用户使用协议》' : '登录 即同意《用户使用协议》'}
-                </span>
-                <Checkbox
-                  checked={isAgree}
-                  onChange={(event) => setIsAgree(event.target.checked)}
-                />
-              </div>
-            )}
-            <div className="login_btn" onClick={submit}>
-              <img alt="start" src={images.icon_start} />
-              <div>
-                <span>{isRegister ? '立即注册' : '立即登录'}</span>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="login-container" style={{ height: '13rem' }}>
-            <div className="normal-row" style={{ width: '23rem' }}>
-              <div style={{ width: '7rem', textAlign: 'left', cursor: 'pointer' }}>
-                <img alt="back" src={images.icon_back} onClick={openMainPage} />
-              </div>
-              <span style={{ fontSize: '0.8rem', width: '7rem', textAlign: 'center' }}>
-                登记加入等待队伍
-              </span>
-              <div style={{ width: '7rem', textAlign: 'right', cursor: 'pointer' }}>
-                <img alt="forget-disabled" src={iconForgetForbidden} />
-                <img
-                  alt="register-disabled"
-                  src={iconRegisterForbidden}
-                  style={{ marginLeft: '0.8rem' }}
-                />
-              </div>
-            </div>
-            <div
-              style={{
-                flexDirection: 'column',
-                display: 'flex',
-                width: '100%',
-                marginTop: '1.5rem',
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-              >
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span>手机号码/电子邮箱</span>
-                  <Input
-                    bordered={false}
-                    placeholder="手机号码/电子邮箱"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                  />
-                </div>
-              </div>
-            </div>
-            <div
-              style={{
-                flexDirection: 'row',
-                display: 'flex',
-                alignContent: 'center',
-                justifyContent: 'space-between',
-                width: '100%',
-                marginTop: '1.5rem',
-              }}
-            >
-              <span>
-                由于当前注册人数过多，请登记加入等待队伍，AI梦之家 按照 “登记顺序”
-                通知等待中的用户。
-              </span>
-              <Checkbox
-                checked={isAgree}
-                onChange={(event) => setIsAgree(event.target.checked)}
+
+            {!isRegister && !isForget ? (
+              <PcCheckRow
+                label="15 天内自动登录"
+                checked={recordUser}
+                onChange={setRecordUser}
+                action={
+                  <button type="button" onClick={() => resetMode('forget')}>
+                    忘记密码?
+                  </button>
+                }
               />
+            ) : null}
+
+            {!isForget ? (
+              <PcCheckRow
+                label={isRegister ? '注册即同意《用户使用协议》' : '登录即同意《用户使用协议》'}
+                checked={isAgree}
+                onChange={setIsAgree}
+              />
+            ) : null}
+          </>
+        ) : (
+          <>
+            <div className="pc-auth-page__waitingnote">
+              <img alt="" src={iconWaiting} />
+              <span>当前注册名额较紧张</span>
             </div>
-            <div
-              className="login_btn"
-              onClick={joinWaitingList}
-              style={{ background: 'rgba(8, 134, 0, 0.49)', top: '12rem' }}
-            >
-              <img alt="waiting" src={iconWaiting} />
-              <div style={{ background: 'rgba(21,111,21, 1)' }}>
-                <span>加入等待</span>
-              </div>
-            </div>
-          </div>
+            <PcField label="手机号码 / 电子邮箱">
+              <Input
+                bordered={false}
+                placeholder="请输入可接收通知的联系方式"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+              />
+            </PcField>
+            <PcCheckRow
+              label="同意加入等待队列，资格开放时通知我"
+              checked={isAgree}
+              onChange={setIsAgree}
+            />
+          </>
         )}
-        <img alt="eng-logo" className="login-eng-logo" src={images.eng_logo} />
-        <AidrIntroduction />
-      </div>
+
+        <button
+          type="button"
+          className={`pc-auth-page__submit${showRegisterList ? ' is-waiting' : ''}${authSubmitting ? ' is-loading' : ''}`}
+          onClick={showRegisterList ? joinWaitingList : submit}
+          disabled={submitDisabled}
+        >
+          {authSubmitting ? <Spin size="small" /> : null}
+          <span>{authSubmitting ? '处理中' : pcActionLabel}</span>
+          {!authSubmitting ? <span aria-hidden="true">→</span> : null}
+        </button>
+
+        {!showRegisterList && !isRegister && !isForget ? (
+          <>
+            <div className="pc-auth-page__divider"><span>或</span></div>
+            <button type="button" className="pc-auth-page__wechat">
+              <img alt="" src={images.wx_login} />
+              <span>微信快捷登录</span>
+            </button>
+          </>
+        ) : null}
+
+        <p className="pc-auth-page__terms">
+          继续即代表您已阅读并接受 <button type="button">隐私政策</button> 及 <button type="button">服务条款</button>
+        </p>
+
+        {showRegisterList ? (
+          <button
+            type="button"
+            className="pc-auth-page__backlink"
+            onClick={() => resetMode('register')}
+          >
+            ← 返回注册
+          </button>
+        ) : null}
+      </section>
     </div>
   );
 }

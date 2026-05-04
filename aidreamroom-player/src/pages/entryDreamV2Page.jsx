@@ -92,7 +92,7 @@ export function EntryDreamV2Page() {
   return (
     <div className="main-container entrydream-v2-page" style={{ backgroundImage: `url(${images.bg_entry})` }}>
       <img alt="logo" src={images.logo} className="login-logo" />
-      <DesktopUserFloatingCard />
+      {/* <DesktopUserFloatingCard /> */}
 
       <main className="entrydream-v2-shell">
         <div className="entrydream-v2-eyebrow">AI Dreamroom · 入梦系统</div>
@@ -163,8 +163,8 @@ export function EntryDreamV2Page() {
       </main>
 
       <div className="entrydream-v2-footer">
-        <button type="button" className="entrydream-v2-footerbutton" onClick={() => navigate('/main')}>
-          {'< 返回主页'}
+        <button type="button" className="entrydream-v2-footerbutton desktop-return-home-button" onClick={() => navigate('/main')}>
+          返回主页
         </button>
       </div>
 
