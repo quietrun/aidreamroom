@@ -16,7 +16,9 @@ export class LegacyDbService {
   ): Promise<T[]> {
     let rows: Record<string, unknown>[];
     try {
-      rows = await this.prisma.$queryRawUnsafe<Record<string, unknown>[]>(statement, ...params);
+      rows = await this.runWithReconnect(() =>
+        this.prisma.$queryRawUnsafe<Record<string, unknown>[]>(statement, ...params),
+      );
     } catch (error) {
       this.logRawError('query', statement, params, error);
       throw error;
@@ -29,7 +31,9 @@ export class LegacyDbService {
     params: QueryParam[] = [],
   ): Promise<number> {
     try {
-      return await this.prisma.$executeRawUnsafe(statement, ...params);
+      return await this.runWithReconnect(() =>
+        this.prisma.$executeRawUnsafe(statement, ...params),
+      );
     } catch (error) {
       this.logRawError('execute', statement, params, error);
       throw error;
@@ -42,7 +46,9 @@ export class LegacyDbService {
     const values = keys.map((key) => this.normalizeValue(data[key]));
     const statement = `REPLACE INTO ${tableName} (${keys.join(', ')}) VALUES (${placeholders})`;
     try {
-      await this.prisma.$executeRawUnsafe(statement, ...values);
+      await this.runWithReconnect(() =>
+        this.prisma.$executeRawUnsafe(statement, ...values),
+      );
     } catch (error) {
       this.logRawError('replaceInto', statement, values, error);
       throw error;
@@ -78,6 +84,39 @@ export class LegacyDbService {
     }
 
     return String(value);
+  }
+
+  private async runWithReconnect<T>(operation: () => Promise<T>): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      if (!this.isPrismaConnectionError(error)) {
+        throw error;
+      }
+
+      this.logger.warn(`Prisma connection/engine error detected, reconnecting once: ${this.getErrorMessage(error)}`);
+      await this.prisma.reconnect();
+      return operation();
+    }
+  }
+
+  private isPrismaConnectionError(error: unknown) {
+    const message = this.getErrorMessage(error);
+    const code = (error as { code?: string } | null)?.code;
+    return (
+      code === 'P1001' ||
+      code === 'P1002' ||
+      code === 'P1017' ||
+      message.includes('Response from the Engine was empty') ||
+      message.includes('Engine is not yet connected') ||
+      message.includes("Can't reach database server") ||
+      message.includes('Timed out fetching a new connection') ||
+      message.includes('Server has closed the connection')
+    );
+  }
+
+  private getErrorMessage(error: unknown) {
+    return error instanceof Error ? error.message : String(error);
   }
 
   private logRawError(

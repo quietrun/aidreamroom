@@ -39,6 +39,8 @@ export class PrismaService
   extends PrismaClient
   implements OnModuleInit, OnModuleDestroy
 {
+  private reconnecting: Promise<void> | null = null;
+
   constructor() {
     super({
       datasources: {
@@ -55,5 +57,18 @@ export class PrismaService
 
   async onModuleDestroy() {
     await this.$disconnect();
+  }
+
+  async reconnect() {
+    if (!this.reconnecting) {
+      this.reconnecting = (async () => {
+        await this.$disconnect().catch(() => undefined);
+        await this.$connect();
+      })().finally(() => {
+        this.reconnecting = null;
+      });
+    }
+
+    return this.reconnecting;
   }
 }

@@ -1,9 +1,12 @@
 import {
+  AiTurnOutput,
   NarrationOutput,
   ParsedIntent,
+  PlayerIntentType,
   PlayCharacterProfile,
   PlayClientSnapshot,
   PlayGameState,
+  PlayLoadoutItem,
   PlayMessageRecord,
   PlayRollResult,
   PlayScriptBundle,
@@ -1102,6 +1105,16 @@ function processTriggeredEvents(
   }
 }
 
+function getCandidateEventIds(bundle: PlayScriptBundle, state: PlayGameState) {
+  const currentEvent = getCurrentEvent(bundle, state);
+  const locationEvents = bundle.eventsByLocationId[state.currentLocationId] ?? [];
+  return uniqueStrings([
+    ...(currentEvent?.story_links?.next_events ?? []),
+    ...(currentEvent?.story_links?.unlocks_events ?? []),
+    ...locationEvents.map((event) => event.event_id),
+  ]).filter((eventId) => !state.completedEventIds.includes(eventId));
+}
+
 function buildAllowedTransitions(bundle: PlayScriptBundle, state: PlayGameState, character: PlayCharacterProfile) {
   const moves = listAttemptableConnections(bundle, state, character).map((item) => ({
     id: item.targetLocation.location_id,
@@ -1239,6 +1252,7 @@ export function createInitialEventGameState(
   sessionId: string,
   bundle: PlayScriptBundle,
   loadoutLabels: string[] = [],
+  loadoutItems: PlayLoadoutItem[] = [],
 ): PlayGameState {
   const schema = bundle.scriptFile.global_state_schema ?? {};
   const startLocationId =
@@ -1286,6 +1300,7 @@ export function createInitialEventGameState(
     timeValue: Number(schema.time?.initial_value ?? 0),
     inventory,
     loadoutLabels,
+    loadoutItems,
     flags: cloneValueMap(schema.flags),
     npcStates: {},
     recentEvents: [],
@@ -1363,6 +1378,11 @@ export function executeEventRule(
     targetNpcId: intent.targetNpcId,
     targetItemId: intent.targetItemId,
   };
+  for (const eventId of intent.targetEventIds ?? []) {
+    if (bundle.eventsById[eventId]) {
+      context.explicitEventIds.add(eventId);
+    }
+  }
 
   const result: RuleResult = {
     success: true,
@@ -1901,6 +1921,150 @@ export function buildEventNarrationPrompt(params: {
     stringifyPromptPayload('input', compactInput),
     stringifyPromptPayload('rule', summarizeRuleResultForPrompt(ruleResult)),
   ].join('\n');
+}
+
+export function buildEventAiTurnPrompt(params: {
+  bundle: PlayScriptBundle;
+  state: PlayGameState;
+  inputMode: 'action' | 'dialogue' | 'thought';
+  playerInput: string;
+  character: PlayCharacterProfile;
+  recentMessages?: PlayMessageRecord[];
+}) {
+  const { bundle, state, inputMode, playerInput, character, recentMessages = [] } = params;
+  const currentLocation = getCurrentLocation(bundle, state);
+  const currentEvent = getCurrentEvent(bundle, state);
+  const presentNpcIds = getPresentNpcIds(bundle, state, state.currentLocationId);
+  const moves = listAttemptableConnections(bundle, state, character).slice(0, 8);
+  const eventCandidates = getCandidateEventIds(bundle, state)
+    .map((eventId) => bundle.eventsById[eventId])
+    .filter(Boolean)
+    .slice(0, 8);
+
+  return [
+    '你是受控文字RPG回合引擎，只返回JSON，不要Markdown。',
+    '根据玩家输入、前文、当前地点、关联地点和候选事件，生成本回合叙事，并给服务端可验证的ops。',
+    'ops只允许填给定ID；不确定就留空。服务端会二次校验并执行，禁止编造地点/事件/物品/NPC。',
+    '很多回合只是对话、查看、搜索、思考或原地行动，不会发生地点变化、事件触发或物品变化；这种情况 ops 保持空对象或只填 npc。',
+    '只有玩家明确移动/进入/离开/前往某地点时才填 loc；只是看向、询问、描述、检查某地点时不要填 loc。',
+    '只有玩家动作满足候选事件触发语义时才填 events；不要为了推进剧情强行触发事件。',
+    '只有明确拿起/发现可拿物才填 items_add；只是查看/搜索未找到时不要填。只有明确使用/交出/丢弃已有物品才填 items_remove。',
+    'intent只能是 move/inspect/talk_to_npc/use_item/ask_world_question/free_roleplay。',
+    'loc只能选ctx.moves.id；events只能选ctx.events.id最多2个；items_add/items_remove只能选ctx.items.id；npc只能选ctx.npcs.id。',
+    'narration写2-4句短句，只写新发生的动作后果/地点变化/线索；npc_dialogues只能用ctx.npcs.id。',
+    'schema={"intent":"string","ops":{"loc":"location_id","events":["event_id"],"items_add":["item_id"],"items_remove":["item_id"],"npc":"npc_id","flags":{"k":true},"status":"active|finished"},"narration":"string","npc_dialogues":[{"npcId":"npc_id","text":"string"}],"confidence":0-1}',
+    stringifyPromptPayload('scene', {
+      loc: {
+        id: currentLocation.location_id,
+        name: currentLocation.name,
+        desc: trimPromptText(currentLocation.description ?? '', 100),
+      },
+      event: currentEvent
+        ? {
+            id: currentEvent.event_id,
+            title: currentEvent.title,
+            desc: trimPromptText(currentEvent.description ?? '', 100),
+          }
+        : undefined,
+      objectives: state.currentObjectives.slice(0, 4),
+      inv: Object.entries(state.inventory)
+        .filter(([, count]) => Number(count) > 0)
+        .slice(0, 8)
+        .map(([id, count]) => ({ id, name: getDisplayItemName(bundle, id), count })),
+      known: state.knowledge.slice(-6),
+    }),
+    stringifyPromptPayload('ctx', {
+      moves: moves.map((item) => ({
+        id: item.targetLocation.location_id,
+        name: item.targetLocation.name,
+        via: trimPromptText(item.connection.connection_type ?? '', 50),
+      })),
+      events: eventCandidates.map((event) => ({
+        id: event.event_id,
+        title: event.title,
+        at: event.location_binding?.location_id ?? '',
+        trig: trimPromptText(
+          [
+            event.trigger?.trigger_type,
+            event.trigger?.trigger_timing,
+            event.description,
+          ].filter(Boolean).join(' '),
+          120,
+        ),
+      })),
+      npcs: presentNpcIds.map((npcId) => ({
+        id: npcId,
+        name: bundle.npcsById[npcId]?.name ?? npcId,
+      })),
+      items: (currentLocation.items ?? []).slice(0, 8).map((itemId) => ({
+        id: itemId,
+        name: getDisplayItemName(bundle, itemId),
+      })),
+      recent: {
+        events: summarizeRecentEvents(state.recentEvents, 3, 70),
+        messages: summarizeRecentMessages(recentMessages, 3, 70),
+      },
+    }),
+    stringifyPromptPayload('input', {
+      mode: inputMode,
+      text: trimPromptText(playerInput, 140),
+    }),
+  ].join('\n');
+}
+
+export function normalizeEventAiTurnOutput(raw: string | null): AiTurnOutput | null {
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as AiTurnOutput;
+    const allowedIntents = new Set<PlayerIntentType>([
+      'move',
+      'inspect',
+      'talk_to_npc',
+      'use_item',
+      'ask_world_question',
+      'free_roleplay',
+    ]);
+    const intent = allowedIntents.has(parsed.intent as PlayerIntentType)
+      ? parsed.intent
+      : undefined;
+    const ops = parsed.ops && typeof parsed.ops === 'object' ? parsed.ops : {};
+
+    return {
+      intent,
+      ops: {
+        loc: String(ops.loc ?? '').trim() || undefined,
+        events: Array.isArray(ops.events)
+          ? ops.events.map((item) => String(item).trim()).filter(Boolean).slice(0, 2)
+          : undefined,
+        items_add: Array.isArray(ops.items_add)
+          ? ops.items_add.map((item) => String(item).trim()).filter(Boolean).slice(0, 4)
+          : undefined,
+        items_remove: Array.isArray(ops.items_remove)
+          ? ops.items_remove.map((item) => String(item).trim()).filter(Boolean).slice(0, 4)
+          : undefined,
+        npc: String(ops.npc ?? '').trim() || undefined,
+        flags: ops.flags && typeof ops.flags === 'object' ? ops.flags : undefined,
+        status: ops.status === 'finished' ? 'finished' : undefined,
+      },
+      narration: String(parsed.narration ?? '').trim(),
+      npc_dialogues: Array.isArray(parsed.npc_dialogues)
+        ? parsed.npc_dialogues
+            .map((item) => ({
+              npcId: String(item.npcId ?? '').trim(),
+              text: String(item.text ?? '').trim(),
+            }))
+            .filter((item) => item.npcId && item.text)
+        : [],
+      confidence: Number.isFinite(Number(parsed.confidence))
+        ? Math.max(0, Math.min(1, Number(parsed.confidence)))
+        : 0,
+    };
+  } catch {
+    return null;
+  }
 }
 
 export function normalizeEventNarrationOutput(raw: string | null) {

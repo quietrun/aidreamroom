@@ -8,21 +8,28 @@ import {
   analyzePlayerInput,
   appendGameEvent,
   applyRuleResult,
+  buildAiTurnPrompt,
   buildClientSnapshot,
   buildOpeningFallbackMessages,
   buildOpeningPrompt,
   buildNarrationPrompt,
   executeRule,
+  isAiTurnDrivenBundle,
+  normalizeAiTurnOutput,
   normalizeNarrationOutput,
   parseIntent,
 } from '../runtime/play-runtime.util';
 import {
+  AiTurnOutput,
   NarrationOutput,
+  ParsedIntent,
   PlayCharacterProfile,
   PlayGameState,
   PlayMessageRecord,
+  PlayerInputAnalysis,
   PlayScriptBundle,
   PlayScriptRecord,
+  RuleResult,
 } from '../runtime/play-runtime.types';
 
 const websocket = require('nodejs-websocket');
@@ -269,7 +276,11 @@ class GameSocketSession {
     playerMessage.mode = inputAnalysis.mode;
     this.messages.push(playerMessage);
 
-    const intent = parseIntent(playerInput, this.bundle, inputMode, this.state);
+    const baseIntent = parseIntent(playerInput, this.bundle, inputMode, this.state);
+    const aiTurn = isAiTurnDrivenBundle(this.bundle)
+      ? await this.generateAiTurn(playerInput, moduleId, inputAnalysis)
+      : null;
+    const intent = this.mergeAiTurnIntent(baseIntent, aiTurn);
     const ruleResult = executeRule(
       playerInput,
       intent,
@@ -277,29 +288,38 @@ class GameSocketSession {
       this.bundle,
       this.character,
     );
+    this.applyAiTurnOps(ruleResult, aiTurn);
     const nextState = applyRuleResult(this.state, ruleResult, this.bundle);
     appendGameEvent(nextState, playerInput, ruleResult);
 
-    const prompt = buildNarrationPrompt({
-      bundle: this.bundle,
-      previousState: this.state,
-      state: nextState,
-      intent,
-      inputAnalysis,
-      ruleResult,
-      playerInput,
-      character: this.character,
-      recentMessages: this.messages,
-    });
+    const prompt = aiTurn
+      ? ''
+      : buildNarrationPrompt({
+          bundle: this.bundle,
+          previousState: this.state,
+          state: nextState,
+          intent,
+          inputAnalysis,
+          ruleResult,
+          playerInput,
+          character: this.character,
+          recentMessages: this.messages,
+        });
     const llmStartedAt = Date.now();
-    this.logger.log(
-      `[${this.sessionId}] requesting AI narration gameId=${this.gameId} moduleId=${moduleId} promptLength=${prompt.length}`,
-    );
-    const llmRaw = await this.gptService.generateStructuredMessage(prompt, moduleId);
-    this.logger.log(
-      `[${this.sessionId}] AI narration raw response gameId=${this.gameId} moduleId=${moduleId} durationMs=${Date.now() - llmStartedAt} length=${llmRaw?.length ?? 0}`,
-    );
-    const narration = normalizeNarrationOutput(llmRaw);
+    if (!aiTurn) {
+      this.logger.log(
+        `[${this.sessionId}] requesting AI narration gameId=${this.gameId} moduleId=${moduleId} promptLength=${prompt.length}`,
+      );
+    }
+    const llmRaw = aiTurn
+      ? null
+      : await this.gptService.generateStructuredMessage(prompt, moduleId);
+    if (!aiTurn) {
+      this.logger.log(
+        `[${this.sessionId}] AI narration raw response gameId=${this.gameId} moduleId=${moduleId} durationMs=${Date.now() - llmStartedAt} length=${llmRaw?.length ?? 0}`,
+      );
+    }
+    const narration = aiTurn ?? normalizeNarrationOutput(llmRaw);
     const sanitizedNarration = narration
       ? sanitizeNarrationOutputContent(narration, this.messages)
       : null;
@@ -371,6 +391,118 @@ class GameSocketSession {
         times: item.times + 1,
       };
     });
+  }
+
+  private async generateAiTurn(
+    playerInput: string,
+    moduleId: number,
+    inputAnalysis: PlayerInputAnalysis,
+  ) {
+    if (!this.bundle || !this.state || !this.character) {
+      return null;
+    }
+
+    const prompt = buildAiTurnPrompt({
+      bundle: this.bundle,
+      state: this.state,
+      inputAnalysis,
+      playerInput,
+      character: this.character,
+      recentMessages: this.messages,
+    });
+    const startedAt = Date.now();
+    this.logger.log(
+      `[${this.sessionId}] requesting AI turn gameId=${this.gameId} moduleId=${moduleId} promptLength=${prompt.length}`,
+    );
+    const raw = await this.gptService.generateStructuredMessage(prompt, moduleId);
+    this.logger.log(
+      `[${this.sessionId}] AI turn raw response gameId=${this.gameId} moduleId=${moduleId} durationMs=${Date.now() - startedAt} length=${raw?.length ?? 0}`,
+    );
+    return normalizeAiTurnOutput(raw);
+  }
+
+  private mergeAiTurnIntent(intent: ParsedIntent, aiTurn: AiTurnOutput | null): ParsedIntent {
+    if (!aiTurn || (aiTurn.confidence ?? 0) < 0.35) {
+      return intent;
+    }
+
+    const ops = aiTurn.ops ?? {};
+    return {
+      ...intent,
+      intent:
+        ops.loc ? 'move'
+          : ops.npc ? 'talk_to_npc'
+            : ops.items_add?.[0] ? 'inspect'
+              : ops.items_remove?.[0] ? 'use_item'
+                : aiTurn.intent ?? intent.intent,
+      targetLocationId: ops.loc ?? intent.targetLocationId,
+      targetNpcId: ops.npc ?? intent.targetNpcId,
+      targetItemId: ops.items_add?.[0] ?? ops.items_remove?.[0] ?? intent.targetItemId,
+      targetEventIds: ops.events ?? intent.targetEventIds,
+      confidence: Math.max(intent.confidence, aiTurn.confidence ?? 0),
+    };
+  }
+
+  private applyAiTurnOps(ruleResult: RuleResult, aiTurn: AiTurnOutput | null) {
+    if (!aiTurn?.ops || !this.bundle || !this.state) {
+      return;
+    }
+
+    const currentLocation = this.bundle.locationsById[this.state.currentLocationId];
+    const currentLocationItemIds = new Set(currentLocation?.items ?? []);
+    const inventory = this.state.inventory;
+    const addItems = (aiTurn.ops.items_add ?? []).filter((itemId) =>
+      Boolean(this.bundle?.itemsById[itemId] && currentLocationItemIds.has(itemId)),
+    );
+    const removeItems = (aiTurn.ops.items_remove ?? []).filter((itemId) =>
+      Boolean(this.bundle?.itemsById[itemId] && Number(inventory[itemId] ?? 0) > 0),
+    );
+
+    if (addItems.length) {
+      ruleResult.stateChanges.inventoryAdd = {
+        ...(ruleResult.stateChanges.inventoryAdd ?? {}),
+      };
+      for (const itemId of addItems) {
+        if (ruleResult.stateChanges.inventoryAdd[itemId]) {
+          continue;
+        }
+        ruleResult.stateChanges.inventoryAdd[itemId] =
+          Number(ruleResult.stateChanges.inventoryAdd[itemId] ?? 0) + 1;
+        ruleResult.actionResults.push({
+          type: 'item_gain',
+          success: true,
+          summary: `获得 ${this.bundle.itemsById[itemId]?.name ?? itemId}`,
+          itemId,
+        });
+      }
+    }
+
+    if (removeItems.length) {
+      ruleResult.stateChanges.inventoryRemove = {
+        ...(ruleResult.stateChanges.inventoryRemove ?? {}),
+      };
+      for (const itemId of removeItems) {
+        ruleResult.stateChanges.inventoryRemove[itemId] =
+          Number(ruleResult.stateChanges.inventoryRemove[itemId] ?? 0) + 1;
+        ruleResult.actionResults.push({
+          type: 'use_item',
+          success: true,
+          summary: `消耗 ${this.bundle.itemsById[itemId]?.name ?? itemId}`,
+          itemId,
+        });
+      }
+    }
+
+    if (aiTurn.ops.flags) {
+      ruleResult.stateChanges.flags = {
+        ...(ruleResult.stateChanges.flags ?? {}),
+        ...aiTurn.ops.flags,
+      };
+    }
+
+    if (aiTurn.ops.status === 'finished') {
+      ruleResult.stateChanges.status = 'finished';
+    }
   }
 
   private async emitTurn(narration: NarrationOutput) {

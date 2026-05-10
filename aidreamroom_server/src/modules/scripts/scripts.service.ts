@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 
 import { LegacyDbService } from '../../common/database/legacy-db.service';
 
@@ -44,11 +44,16 @@ type ScriptSummaryRow = Omit<
 @Injectable()
 export class ScriptsService implements OnModuleInit {
   private tableReady: Promise<void> | null = null;
+  private readonly logger = new Logger(ScriptsService.name);
 
   constructor(private readonly db: LegacyDbService) {}
 
-  async onModuleInit() {
-    await this.ensureTable();
+  onModuleInit() {
+    void this.ensureTable().catch((error) => {
+      this.logger.warn(
+        `script_table warmup skipped: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    });
   }
 
   async queryByUuid(uuid: string) {
@@ -97,21 +102,10 @@ export class ScriptsService implements OnModuleInit {
           ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         `);
         await this.ensurePosterColumn();
-        await this.db.execute(`
-            ALTER TABLE \`script_table\`
-            MODIFY COLUMN \`title\` text NOT NULL,
-            MODIFY COLUMN \`description\` longtext NULL,
-            MODIFY COLUMN \`theme\` longtext NULL,
-            MODIFY COLUMN \`difficulty\` varchar(64) NULL,
-            MODIFY COLUMN \`required_items\` longtext NULL,
-            MODIFY COLUMN \`required_knowledge\` longtext NULL,
-            MODIFY COLUMN \`poster\` longtext NULL,
-            MODIFY COLUMN \`script_file\` longtext NULL,
-            MODIFY COLUMN \`npc_file\` longtext NULL,
-            MODIFY COLUMN \`item_file\` longtext NULL,
-            MODIFY COLUMN \`map_file\` longtext NULL
-          `);
-      })();
+      })().catch((error) => {
+        this.tableReady = null;
+        throw error;
+      });
     }
 
     return this.tableReady;

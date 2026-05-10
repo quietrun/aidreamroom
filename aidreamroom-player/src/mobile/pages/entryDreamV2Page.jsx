@@ -138,7 +138,7 @@ export function MobileEntryDreamV2Page() {
           </header>
 
           <section className="mobile-entrydream-page__hero">
-            <div className="mobile-entrydream-page__eyebrow">AI 梦境 · 入梦系统</div>
+            <div className="mobile-entrydream-page__eyebrow">AI 梦境 · 梦之家</div>
             <h1 className="mobile-entrydream-page__title">即刻踏入梦境</h1>
 
             <div className="mobile-entrydream-page__statusbar">

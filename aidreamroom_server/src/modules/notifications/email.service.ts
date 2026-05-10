@@ -10,7 +10,7 @@ export class EmailService {
   private readonly fromAddress: string;
 
   constructor(private readonly configService: ConfigService) {
-    this.fromName = this.configService.get<string>('app.emailFromName', 'AI梦之屋');
+    this.fromName = this.configService.get<string>('app.emailFromName', 'AI梦之家');
     this.fromAddress = this.configService.get<string>('app.emailFromAddress', '');
 
     const ses = new SES({
@@ -49,7 +49,7 @@ export class EmailService {
       subject: '恭喜，您已可以注册',
       html: `
         <p>您好，</p>
-        <p>您的 AI 梦之屋注册资格已经开放，请使用排队时填写的账号完成注册。</p>
+        <p>您的 AI 梦之家注册资格已经开放，请使用排队时填写的账号完成注册。</p>
       `,
     });
   }

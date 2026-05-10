@@ -95,7 +95,7 @@ export function EntryDreamV2Page() {
       {/* <DesktopUserFloatingCard /> */}
 
       <main className="entrydream-v2-shell">
-        <div className="entrydream-v2-eyebrow">AI Dreamroom · 入梦系统</div>
+        <div className="entrydream-v2-eyebrow">AI Dreamroom · 梦之家</div>
         <h1 className="entrydream-v2-title">即刻踏入梦境</h1>
 
         <section className="entrydream-v2-statusbar" aria-label="梦境状态">

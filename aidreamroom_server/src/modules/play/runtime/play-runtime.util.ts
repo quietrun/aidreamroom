@@ -6,6 +6,7 @@ import {
   PlayEventType,
   PlayGameEvent,
   PlayGameState,
+  PlayLoadoutItem,
   PlayMessageRecord,
   PlayerInputAnalysis,
   PlayRollResult,
@@ -26,6 +27,7 @@ import {
 } from './play-runtime.types';
 import {
   applyEventRuleResult,
+  buildEventAiTurnPrompt,
   buildEventClientSnapshot,
   buildEventOpeningFallbackMessages,
   buildEventOpeningPrompt,
@@ -34,6 +36,7 @@ import {
   createInitialEventGameState,
   executeEventRule,
   isEventDrivenBundle,
+  normalizeEventAiTurnOutput,
 } from './play-runtime.event.util';
 import {
   stringifyPromptPayload,
@@ -525,9 +528,10 @@ export function createInitialGameState(
   sessionId: string,
   bundle: PlayScriptBundle,
   loadoutLabels: string[] = [],
+  loadoutItems: PlayLoadoutItem[] = [],
 ): PlayGameState {
   if (isEventDrivenBundle(bundle)) {
-    return createInitialEventGameState(sessionId, bundle, loadoutLabels);
+    return createInitialEventGameState(sessionId, bundle, loadoutLabels, loadoutItems);
   }
 
   const startLocationId =
@@ -575,6 +579,7 @@ export function createInitialGameState(
     timeValue: 0,
     inventory,
     loadoutLabels,
+    loadoutItems,
     flags: {},
     npcStates: {},
     recentEvents: [],
@@ -1642,6 +1647,36 @@ export function buildNarrationPrompt(params: {
     stringifyPromptPayload('input', compactInput),
     stringifyPromptPayload('rule', summarizeRuleResultForPrompt(ruleResult)),
   ].join('\n');
+}
+
+export function buildAiTurnPrompt(params: {
+  bundle: PlayScriptBundle;
+  state: PlayGameState;
+  inputAnalysis: PlayerInputAnalysis;
+  playerInput: string;
+  character: PlayCharacterProfile;
+  recentMessages?: PlayMessageRecord[];
+}) {
+  if (!isEventDrivenBundle(params.bundle)) {
+    return '';
+  }
+
+  return buildEventAiTurnPrompt({
+    bundle: params.bundle,
+    state: params.state,
+    inputMode: params.inputAnalysis.mode,
+    playerInput: params.playerInput,
+    character: params.character,
+    recentMessages: params.recentMessages,
+  });
+}
+
+export function normalizeAiTurnOutput(raw: string | null) {
+  return normalizeEventAiTurnOutput(raw);
+}
+
+export function isAiTurnDrivenBundle(bundle: PlayScriptBundle) {
+  return isEventDrivenBundle(bundle);
 }
 
 export function normalizeNarrationOutput(raw: string | null) {

@@ -187,7 +187,7 @@ export function MainPage() {
       </header>
 
       <main className="desktop-main-page__center">
-        <span className="desktop-main-page__eyebrow">AI Dreamroom · 入梦系统</span>
+        <span className="desktop-main-page__eyebrow">AI Dreamroom · 梦之家</span>
         <h1>选择你的旅程入口</h1>
         <section className="desktop-main-page__cards" aria-label="旅程入口">
           {cards.map((card) => (

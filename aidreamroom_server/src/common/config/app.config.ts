@@ -30,7 +30,7 @@ export default registerAs('app', () => ({
   sesRegion: process.env.SES_REGION ?? 'us-west-1',
   sesAccessKeyId: process.env.SES_ACCESS_KEY_ID ?? '',
   sesSecretAccessKey: process.env.SES_SECRET_ACCESS_KEY ?? '',
-  emailFromName: process.env.EMAIL_FROM_NAME ?? 'AI梦之屋',
+  emailFromName: process.env.EMAIL_FROM_NAME ?? 'AI梦之家',
   emailFromAddress: process.env.EMAIL_FROM_ADDRESS ?? '',
   smsAccount: process.env.SMS_ACCOUNT ?? '',
   smsPassword: process.env.SMS_PASSWORD ?? '',

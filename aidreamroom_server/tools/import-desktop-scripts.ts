@@ -40,7 +40,6 @@ type ExistingScriptRow = {
   createTime: number | bigint | string | null;
 };
 
-const prisma = new PrismaClient();
 const POSTER_FILE_NAMES = [
   'poster.png',
   'poster.jpg',
@@ -52,6 +51,49 @@ const POSTER_FILE_NAMES = [
 
 function stableUuid(input: string) {
   return createHash('md5').update(input).digest('hex');
+}
+
+function loadDotEnv() {
+  const envPath = resolve(process.cwd(), '.env');
+  if (!existsSync(envPath)) {
+    return;
+  }
+
+  const content = readFileSync(envPath, 'utf8');
+  for (const line of content.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) {
+      continue;
+    }
+
+    const index = trimmed.indexOf('=');
+    if (index < 0) {
+      continue;
+    }
+
+    const key = trimmed.slice(0, index).trim();
+    const value = trimmed.slice(index + 1).trim().replace(/^"(.*)"$/, '$1');
+    if (key && process.env[key] === undefined) {
+      process.env[key] = value;
+    }
+  }
+}
+
+function buildDatasourceUrl() {
+  const rawUrl = process.env.DATABASE_URL ?? '';
+  if (!rawUrl) {
+    return rawUrl;
+  }
+
+  const url = new URL(rawUrl);
+  if (!url.searchParams.has('connection_limit')) {
+    url.searchParams.set('connection_limit', process.env.PRISMA_CONNECTION_LIMIT ?? '5');
+  }
+  if (!url.searchParams.has('pool_timeout')) {
+    url.searchParams.set('pool_timeout', process.env.PRISMA_POOL_TIMEOUT ?? '15');
+  }
+
+  return url.toString();
 }
 
 function readJsonFile<T>(path: string): T {
@@ -137,10 +179,10 @@ function scoreExistingScriptRow(bundle: ScriptBundleFiles, row: ExistingScriptRo
 
   for (const rowName of rowNames) {
     if (rowName === bundle.title) {
-      bestScore = Math.max(bestScore, 400);
+      bestScore = Math.max(bestScore, 320);
     }
     if (rowName === bundle.folderName) {
-      bestScore = Math.max(bestScore, 320);
+      bestScore = Math.max(bestScore, 400);
     }
     if (normalizedBundleNames.has(normalizeScriptName(rowName))) {
       bestScore = Math.max(bestScore, 200);
@@ -217,7 +259,7 @@ function collectScriptFolders(rootDir: string) {
   return result.sort((left, right) => left.folderName.localeCompare(right.folderName, 'zh-Hans-CN'));
 }
 
-async function ensurePosterColumn() {
+async function ensurePosterColumn(prisma: PrismaClient) {
   const rows = await prisma.$queryRawUnsafe<Array<{ total: number | bigint | string }>>(
     `
       SELECT COUNT(*) AS total
@@ -238,7 +280,7 @@ async function ensurePosterColumn() {
   `);
 }
 
-async function ensureScriptTable() {
+async function ensureScriptTable(prisma: PrismaClient) {
   await prisma.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS \`script_table\` (
       \`uuid\` varchar(32) NOT NULL,
@@ -260,16 +302,16 @@ async function ensureScriptTable() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
 
-  await ensurePosterColumn();
+  await ensurePosterColumn(prisma);
 }
 
-async function syncScripts(rootDir: string) {
+async function syncScripts(rootDir: string, prisma: PrismaClient) {
   const bundles = collectScriptFolders(rootDir);
   if (bundles.length === 0) {
     throw new Error(`未在 ${rootDir} 下找到包含 map.json / npcs.json / items.json / script.json 的剧本目录`);
   }
 
-  await ensureScriptTable();
+  await ensureScriptTable(prisma);
   const existingRows = await prisma.$queryRawUnsafe<ExistingScriptRow[]>(
     `
       SELECT uuid, title, poster, script_file, createTime
@@ -364,21 +406,31 @@ function resolveDefaultRootDir() {
 }
 
 async function main() {
+  loadDotEnv();
+
   const explicitPath = process.argv[2];
   const rootDir = explicitPath ? resolve(explicitPath) : resolveDefaultRootDir();
+  const prisma = new PrismaClient({
+    datasources: {
+      db: {
+        url: buildDatasourceUrl(),
+      },
+    },
+  });
 
   if (!existsSync(rootDir) || !statSync(rootDir).isDirectory()) {
     throw new Error(`剧本目录不存在：${rootDir}`);
   }
 
-  await syncScripts(rootDir);
+  try {
+    await syncScripts(rootDir, prisma);
+  } finally {
+    await prisma.$disconnect();
+  }
 }
 
 main()
   .catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
   });

@@ -408,6 +408,20 @@ export type PlayGameEvent = {
   stateChanges?: Record<string, JsonValue>;
 };
 
+export type PlayLoadoutItem = {
+  label: string;
+  entryId?: string;
+  entryType?: string;
+  itemId?: string;
+  itemType?: string;
+  itemSubType?: string;
+  skillId?: string;
+  source?: string;
+  equipped?: boolean;
+  slot?: string;
+  quantity?: number;
+};
+
 export type PlayGameState = {
   sessionId: string;
   scriptId: string;
@@ -428,6 +442,7 @@ export type PlayGameState = {
   timeValue: number;
   inventory: Record<string, number>;
   loadoutLabels: string[];
+  loadoutItems?: PlayLoadoutItem[];
   flags: ValueMap;
   npcStates: Record<
     string,
@@ -462,6 +477,7 @@ export type ParsedIntent = {
   targetNodeId?: string;
   targetNpcId?: string;
   targetItemId?: string;
+  targetEventIds?: string[];
   topic?: string;
   confidence: number;
   rawText: string;
@@ -543,6 +559,20 @@ export type NarrationOutput = {
   }>;
   feedback?: string;
   ui_hints?: string[];
+};
+
+export type AiTurnOutput = NarrationOutput & {
+  intent?: PlayerIntentType;
+  ops?: {
+    loc?: string;
+    events?: string[];
+    items_add?: string[];
+    items_remove?: string[];
+    npc?: string;
+    flags?: Record<string, string | number | boolean>;
+    status?: PlayGameState['status'];
+  };
+  confidence?: number;
 };
 
 export type PlayClientSnapshot = {

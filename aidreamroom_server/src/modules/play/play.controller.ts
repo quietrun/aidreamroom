@@ -22,8 +22,7 @@ class CreatePlayDto {
 
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
-  currentItems?: string[];
+  currentItems?: Array<string | Record<string, unknown>>;
 }
 
 @Controller('play')

@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 
 import { LegacyDbService } from '../../common/database/legacy-db.service';
 import {
@@ -17,15 +17,19 @@ import {
 import {
   PlayCharacterProfile,
   PlayGameState,
+  PlayLoadoutItem,
   PlayMessageRecord,
+  PlayScriptBundle,
   PlayScriptRecord,
   RuntimeRow,
 } from './runtime/play-runtime.types';
 
+type PlayLoadoutPayloadItem = string | Record<string, unknown>;
+
 type CreatePlayPayload = {
   script_id?: string;
   model_id?: number;
-  currentItems?: string[];
+  currentItems?: PlayLoadoutPayloadItem[];
 };
 
 type PlayConfigRow = {
@@ -83,14 +87,19 @@ type LatestGameRow = {
 @Injectable()
 export class PlayService implements OnModuleInit {
   private tableReady: Promise<void> | null = null;
+  private readonly logger = new Logger(PlayService.name);
 
   constructor(
     private readonly db: LegacyDbService,
     private readonly scriptsService: ScriptsService,
   ) {}
 
-  async onModuleInit() {
-    await this.ensureRuntimeTables();
+  onModuleInit() {
+    void this.ensureRuntimeTables().catch((error) => {
+      this.logger.warn(
+        `runtime table warmup skipped: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    });
   }
 
   async create(creatorId: string, payload: CreatePlayPayload) {
@@ -102,9 +111,10 @@ export class PlayService implements OnModuleInit {
     }
 
     const bundle = parseScriptBundle(script);
-    const loadoutLabels = this.normalizeLoadoutLabels(payload.currentItems);
+    const loadoutItems = this.normalizeLoadoutItems(payload.currentItems);
+    const loadoutLabels = this.getLoadoutLabels(loadoutItems);
     const sessionId = generateUuid();
-    const state = createInitialGameState(sessionId, bundle, loadoutLabels);
+    const state = createInitialGameState(sessionId, bundle, loadoutLabels, loadoutItems);
     const welcomeMessages = buildWelcomeMessages(bundle, state);
 
     const info = {
@@ -115,7 +125,7 @@ export class PlayService implements OnModuleInit {
       character_id: '',
       currentPlotId: state.currentNodeId,
       model_id: payload.model_id ?? 1,
-      currentItems: loadoutLabels.join(','),
+      currentItems: this.serializeLoadoutItems(loadoutItems),
       image_list: '',
       isFinish: false,
     };
@@ -369,10 +379,12 @@ export class PlayService implements OnModuleInit {
     let messages: PlayMessageRecord[];
 
     if (!runtime) {
+      const loadoutItems = this.parseStoredLoadoutItems(game.currentItems);
       state = createInitialGameState(
         gameId,
         bundle,
-        this.normalizeLoadoutLabels(this.parseCommaList(game.currentItems)),
+        this.getLoadoutLabels(loadoutItems),
+        loadoutItems,
       );
       messages = buildWelcomeMessages(bundle, state);
       await this.saveScriptRuntime({
@@ -453,9 +465,7 @@ export class PlayService implements OnModuleInit {
       `,
       [
         state.currentNodeId,
-        messages.length > 0
-          ? state.loadoutLabels.concat(this.stringifyInventoryLabels(state)).join(',')
-          : this.stringifyInventoryLabels(state).join(','),
+        this.serializeRuntimeCurrentItems(state),
         normalizeTimestamp(),
         state.status === 'finished',
         this.calculateProgressPercent(
@@ -519,7 +529,7 @@ export class PlayService implements OnModuleInit {
       ...game,
       script_id: script.uuid,
       currentPlotId: state.currentNodeId,
-      currentItems: this.stringifyInventoryLabels(state).join(','),
+      currentItems: this.serializeRuntimeCurrentItems(state, parseScriptBundle(script)),
       isFinish: state.status === 'finished',
       mode: 'script',
       snapshot,
@@ -629,6 +639,30 @@ export class PlayService implements OnModuleInit {
     );
   }
 
+  private stringifyInventoryItems(state: PlayGameState, bundle?: PlayScriptBundle) {
+    return Object.entries(state.inventory).map(([itemId, count]) => {
+      const item = bundle?.itemsById[itemId];
+      return {
+        label: count > 1 ? `${item?.name ?? itemId} x${count}` : item?.name ?? itemId,
+        itemId,
+        itemType: item?.type ?? 'script_item',
+        source: 'runtime_inventory',
+        quantity: count,
+      } satisfies PlayLoadoutItem;
+    });
+  }
+
+  private serializeRuntimeCurrentItems(state: PlayGameState, bundle?: PlayScriptBundle) {
+    const items = [
+      ...(state.loadoutItems?.length
+        ? state.loadoutItems
+        : this.normalizeLoadoutLabels(state.loadoutLabels).map((label) => ({ label }))),
+      ...this.stringifyInventoryItems(state, bundle),
+    ];
+
+    return this.serializeLoadoutItems(items);
+  }
+
   private parseCommaList(raw: string | null | undefined) {
     return String(raw ?? '')
       .split(',')
@@ -649,7 +683,91 @@ export class PlayService implements OnModuleInit {
   }
 
   private normalizeLoadoutLabels(items?: string[]) {
-    return (items ?? []).map((item) => item.trim()).filter(Boolean);
+    return (items ?? []).map((item) => this.sanitizeLoadoutLabel(item)).filter(Boolean);
+  }
+
+  private normalizeLoadoutItems(items?: PlayLoadoutPayloadItem[]): PlayLoadoutItem[] {
+    const normalized = (items ?? [])
+      .map((item) => this.normalizeLoadoutItem(item))
+      .filter((item): item is PlayLoadoutItem => Boolean(item?.label));
+
+    const seen = new Set<string>();
+    return normalized.filter((item) => {
+      const key = [
+        item.entryId,
+        item.entryType,
+        item.itemId,
+        item.skillId,
+        item.label,
+      ].filter(Boolean).join(':');
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+  }
+
+  private normalizeLoadoutItem(item: PlayLoadoutPayloadItem): PlayLoadoutItem | null {
+    if (typeof item === 'string') {
+      const label = this.sanitizeLoadoutLabel(item);
+      return label ? { label } : null;
+    }
+
+    if (!item || typeof item !== 'object') {
+      return null;
+    }
+
+    const label =
+      this.sanitizeLoadoutLabel(item.label) ||
+      this.sanitizeLoadoutLabel(item.displayName) ||
+      this.sanitizeLoadoutLabel(item.name) ||
+      this.sanitizeLoadoutLabel(item.itemId) ||
+      this.sanitizeLoadoutLabel(item.skillId);
+    if (!label) {
+      return null;
+    }
+
+    const quantity = Number(item.quantity ?? 1);
+    return {
+      label,
+      entryId: this.optionalString(item.entryId),
+      entryType: this.optionalString(item.entryType),
+      itemId: this.optionalString(item.itemId),
+      itemType: this.optionalString(item.itemType),
+      itemSubType: this.optionalString(item.itemSubType),
+      skillId: this.optionalString(item.skillId),
+      source: this.optionalString(item.source),
+      equipped: typeof item.equipped === 'boolean' ? item.equipped : undefined,
+      slot: this.optionalString(item.slot),
+      quantity: Number.isFinite(quantity) && quantity > 0 ? Math.floor(quantity) : undefined,
+    };
+  }
+
+  private parseStoredLoadoutItems(raw: string | null | undefined) {
+    const parsed = this.parseJson<unknown>(raw, null);
+    if (Array.isArray(parsed)) {
+      return this.normalizeLoadoutItems(parsed as PlayLoadoutPayloadItem[]);
+    }
+
+    return this.normalizeLoadoutItems(this.parseCommaList(raw));
+  }
+
+  private serializeLoadoutItems(items: PlayLoadoutItem[]) {
+    return JSON.stringify(this.normalizeLoadoutItems(items));
+  }
+
+  private getLoadoutLabels(items: PlayLoadoutItem[]) {
+    return items.map((item) => item.label).filter(Boolean);
+  }
+
+  private sanitizeLoadoutLabel(value: unknown) {
+    return String(value ?? '').replaceAll(',', '，').trim();
+  }
+
+  private optionalString(value: unknown) {
+    const text = String(value ?? '').trim();
+    return text ? text : undefined;
   }
 
   private async resolveScriptForCreate(payload: CreatePlayPayload) {
@@ -699,7 +817,11 @@ export class PlayService implements OnModuleInit {
         `),
       ])
         .then(() => this.ensurePlayConfigSummaryColumns())
-        .then(() => undefined);
+        .then(() => undefined)
+        .catch((error) => {
+          this.tableReady = null;
+          throw error;
+        });
     }
 
     return this.tableReady;
