@@ -15,6 +15,7 @@ import {
   RawEventChoice,
   RawEventEffects,
   RawItem,
+  RawItemUseRule,
   RawLocation,
   RawLocationAccessMethod,
   RawLocationConnection,
@@ -54,6 +55,9 @@ type EventResolutionContext = {
   removedItemIds: Set<string>;
   targetNpcId?: string;
   targetItemId?: string;
+  targetItemUseRuleId?: string;
+  playerIntent?: PlayerIntentType;
+  playerInput?: string;
   roll?: PlayRollResult;
 };
 
@@ -238,6 +242,46 @@ function getCurrentLocation(bundle: PlayScriptBundle, state: PlayGameState) {
 
 function getCurrentEvent(bundle: PlayScriptBundle, state: PlayGameState) {
   return state.currentEventId ? bundle.eventsById[state.currentEventId] : undefined;
+}
+
+function getEventPlayerText(event: RawScriptEvent | undefined) {
+  return String(
+    event?.player_facing_text ??
+      event?.description ??
+      event?.narrative_detail?.scene ??
+      event?.title ??
+      '',
+  ).trim();
+}
+
+function getEventNarrativeDetail(event: RawScriptEvent | undefined) {
+  const detail = event?.narrative_detail;
+  if (!detail) {
+    return undefined;
+  }
+
+  return {
+    scene: trimPromptText(detail.scene ?? '', 120),
+    goal: trimPromptText(detail.player_goal ?? '', 80),
+    clue: trimPromptText(detail.clue_or_threat ?? '', 100),
+    reason: trimPromptText(detail.mechanical_reason ?? '', 120),
+  };
+}
+
+function getEventSemanticText(event: RawScriptEvent | undefined) {
+  const detail = event?.narrative_detail;
+  return [
+    event?.title,
+    event?.player_facing_text,
+    event?.description,
+    detail?.scene,
+    detail?.player_goal,
+    detail?.clue_or_threat,
+    detail?.mechanical_reason,
+  ]
+    .map((item) => String(item ?? '').trim())
+    .filter(Boolean)
+    .join(' ');
 }
 
 function getPresentNpcIds(
@@ -499,6 +543,18 @@ function applyEventEffects(
 
   for (const npcId of effects.despawn_npcs ?? []) {
     setNpcCustomFlag(draft, npcId, 'despawned', true);
+  }
+
+  for (const eventId of effects.trigger_events ?? []) {
+    if (bundle.eventsById[eventId]) {
+      context.explicitEventIds.add(eventId);
+    }
+  }
+
+  if (effects.consume_item && context.targetItemId) {
+    if (removeInventoryItem(draft.inventory, context.targetItemId) > 0) {
+      context.removedItemIds.add(context.targetItemId);
+    }
   }
 
   if (Number(effects.advance_time ?? 0) !== 0) {
@@ -809,9 +865,23 @@ function applyItemUsage(
   draft: PlayGameState,
   bundle: PlayScriptBundle,
   item: RawItem,
+  character: PlayCharacterProfile,
   context: EventResolutionContext,
 ) {
   context.timings.add('on_interact');
+
+  const useRule = selectItemUseRule(item.use_rules ?? [], draft, bundle, character, context);
+  if (useRule) {
+    applyEventEffects(useRule.effects, draft, bundle, context);
+    return;
+  }
+
+  if ((item.use_rules ?? []).length > 0) {
+    const fallbackFailureRule = (item.use_rules ?? []).find((rule) => rule.failure_effects);
+    applyEventEffects(fallbackFailureRule?.failure_effects, draft, bundle, context);
+    return;
+  }
+
   for (const effect of item.effects ?? []) {
     const effectType = String(effect.effect_type ?? '').toLowerCase();
     const target = String(effect.target ?? '');
@@ -860,6 +930,62 @@ function applyItemUsage(
   }
 }
 
+function selectItemUseRule(
+  rules: RawItemUseRule[],
+  draft: PlayGameState,
+  bundle: PlayScriptBundle,
+  character: PlayCharacterProfile,
+  context: EventResolutionContext,
+) {
+  const applicableRules = rules.filter((rule) => {
+    if (rule.usable === false) {
+      return false;
+    }
+
+    const usableAt = (rule.usable_at ?? []).map((item) => String(item ?? '').trim()).filter(Boolean);
+    if (
+      usableAt.length > 0 &&
+      !usableAt.includes(draft.currentLocationId) &&
+      !usableAt.includes('global') &&
+      !usableAt.includes('*')
+    ) {
+      return false;
+    }
+
+    return evaluateConditionLogic(rule.condition_logic, draft, bundle, character, context);
+  });
+
+  const explicitRule = applicableRules.find(
+    (rule) => rule.use_id && rule.use_id === context.targetItemUseRuleId,
+  );
+  if (explicitRule) {
+    return explicitRule;
+  }
+  if (context.targetItemUseRuleId) {
+    return undefined;
+  }
+
+  const textMatchedRule = applicableRules.find((rule) =>
+    textMeaningfullyOverlaps(
+      context.playerInput,
+      [
+        rule.description,
+        rule.usage_type,
+        ...(rule.target_ids ?? []),
+        rule.use_id,
+      ]
+        .map((item) => String(item ?? '').trim())
+        .filter(Boolean)
+        .join(' '),
+    ),
+  );
+  if (textMatchedRule) {
+    return textMatchedRule;
+  }
+
+  return undefined;
+}
+
 function eventBindingMatches(
   event: RawScriptEvent,
   state: PlayGameState,
@@ -871,18 +997,13 @@ function eventBindingMatches(
     return true;
   }
 
-  const relevantLocationIds = uniqueStrings([
-    state.currentLocationId,
-    ...context.unlockedLocationIds,
-    ...context.discoveredLocationIds,
-  ]);
   const boundIds = uniqueStrings([binding?.location_id ?? undefined, ...(binding?.location_ids ?? [])]);
 
   if (boundIds.length === 0) {
     return true;
   }
 
-  return boundIds.some((locationId) => relevantLocationIds.includes(locationId));
+  return boundIds.includes(state.currentLocationId);
 }
 
 function eventTimingMatches(event: RawScriptEvent, context: EventResolutionContext) {
@@ -926,6 +1047,23 @@ function eventTypeMatches(event: RawScriptEvent, context: EventResolutionContext
   }
 }
 
+function eventNarrativeMatchesPlayerInput(event: RawScriptEvent, context: EventResolutionContext) {
+  if (!context.playerInput) {
+    return true;
+  }
+
+  const triggerType = String(event.trigger?.trigger_type ?? '').toLowerCase();
+  if (triggerType === 'auto') {
+    return true;
+  }
+
+  if (!event.narrative_detail) {
+    return true;
+  }
+
+  return textMeaningfullyOverlaps(context.playerInput, getEventSemanticText(event));
+}
+
 function sortEventCandidates(
   left: RawScriptEvent,
   right: RawScriptEvent,
@@ -946,15 +1084,92 @@ function sortEventCandidates(
   return Number(left.sequence_index ?? 0) - Number(right.sequence_index ?? 0);
 }
 
+function choiceIntentMatches(choice: RawEventChoice, context: EventResolutionContext) {
+  const choiceIntent = String(choice.choice_intent ?? '').toLowerCase();
+  if (!choiceIntent || !context.playerIntent) {
+    return false;
+  }
+
+  const normalizedIntent = String(context.playerIntent).toLowerCase();
+  if (choiceIntent === normalizedIntent) {
+    return true;
+  }
+
+  const aliases: Record<string, string[]> = {
+    inspect: ['investigate', 'search', 'observe', 'read', 'study'],
+    talk_to_npc: ['talk', 'persuade', 'question', 'ask', 'trade', 'help'],
+    use_item: ['use', 'unlock', 'consume', 'offer'],
+    move: ['move', 'enter', 'leave', 'travel'],
+    free_roleplay: ['act', 'risk', 'special'],
+  };
+
+  return (aliases[normalizedIntent] ?? []).includes(choiceIntent);
+}
+
+function textMeaningfullyOverlaps(left: string | undefined, right: string | undefined) {
+  const normalizedLeft = normalizeText(left ?? '');
+  const normalizedRight = normalizeText(right ?? '');
+  if (!normalizedLeft || !normalizedRight) {
+    return false;
+  }
+
+  if (normalizedLeft.includes(normalizedRight) || normalizedRight.includes(normalizedLeft)) {
+    return true;
+  }
+
+  const rightTokens =
+    String(right ?? '')
+      .match(/[\p{Script=Han}]{2,}|[a-zA-Z0-9_]{3,}/gu)
+      ?.map((item) => normalizeText(item))
+      .filter((item) => item.length >= 2) ?? [];
+
+  if (rightTokens.length === 0) {
+    return false;
+  }
+
+  const matched = rightTokens.filter((token) => normalizedLeft.includes(token)).length;
+  return matched >= Math.min(2, rightTokens.length);
+}
+
 function selectEventChoice(event: RawScriptEvent, draft: PlayGameState, bundle: PlayScriptBundle, character: PlayCharacterProfile, context: EventResolutionContext) {
-  for (const choice of event.choices ?? []) {
+  const availableChoices = (event.choices ?? []).filter((choice) =>
+    evaluateConditionLogic(choice.condition_logic, draft, bundle, character, context),
+  );
+
+  const intentMatchedChoice = availableChoices.find((choice) => choiceIntentMatches(choice, context));
+  if (intentMatchedChoice) {
+    return intentMatchedChoice;
+  }
+
+  for (const choice of availableChoices) {
     if (
-      evaluateConditionLogic(choice.condition_logic, draft, bundle, character, context)
+      context.playerInput &&
+      normalizeText(context.playerInput).includes(normalizeText(choice.text ?? ''))
     ) {
       return choice;
     }
   }
-  return undefined;
+
+  const narrativeMatchedChoice = availableChoices.find((choice) =>
+    textMeaningfullyOverlaps(
+      context.playerInput,
+      [
+        choice.text,
+        choice.result_preview,
+        choice.risk_hint,
+        event.narrative_detail?.player_goal,
+        event.narrative_detail?.clue_or_threat,
+      ]
+        .map((item) => String(item ?? '').trim())
+        .filter(Boolean)
+        .join(' '),
+    ),
+  );
+  if (narrativeMatchedChoice) {
+    return narrativeMatchedChoice;
+  }
+
+  return availableChoices[0];
 }
 
 function buildActionResult(
@@ -1028,7 +1243,7 @@ function finalizeEvent(
     result.triggeredNodeId = event.event_id;
     result.triggeredLocationId =
       event.location_binding?.location_id ?? draft.currentLocationId;
-    result.triggeredOutcomeDescription = event.description ?? event.title;
+    result.triggeredOutcomeDescription = getEventPlayerText(event) || event.title;
     result.actionResults.push(
       buildActionResult(
         event.ending?.is_ending ? 'ending' : 'system',
@@ -1081,11 +1296,28 @@ function processTriggeredEvents(
           draft.completedEventIds.includes(id),
         ),
       )
-      .filter((event) => eventBindingMatches(event, draft, context))
-      .filter((event) => eventTimingMatches(event, context))
-      .filter((event) => eventTypeMatches(event, context))
+      .filter(
+        (event) =>
+          context.explicitEventIds.has(event.event_id) ||
+          eventBindingMatches(event, draft, context),
+      )
+      .filter(
+        (event) =>
+          context.explicitEventIds.has(event.event_id) ||
+          eventTimingMatches(event, context),
+      )
+      .filter(
+        (event) =>
+          context.explicitEventIds.has(event.event_id) ||
+          eventTypeMatches(event, context),
+      )
       .filter((event) =>
         evaluateConditionLogic(event.trigger?.condition_logic, draft, bundle, character, context),
+      )
+      .filter(
+        (event) =>
+          !context.explicitEventIds.has(event.event_id) ||
+          eventNarrativeMatchesPlayerInput(event, context),
       )
       .sort((left, right) => sortEventCandidates(left, right, context.explicitEventIds));
 
@@ -1165,7 +1397,7 @@ function buildEventObjectives(
     .map((eventId) => `推进 ${bundle.eventsById[eventId]?.title ?? eventId}`);
 
   return uniqueStrings([
-    currentEvent?.description ?? bundle.scriptFile.metadata?.story_core ?? '',
+    getEventPlayerText(currentEvent) || (bundle.scriptFile.metadata?.story_core ?? ''),
     ...missingKnowledge,
     ...missingItems,
     ...nextEventHints,
@@ -1350,7 +1582,7 @@ export function createInitialEventGameState(
     },
   );
   initialState.narrativeSummary =
-    getCurrentEvent(bundle, initialState)?.description ??
+    getEventPlayerText(getCurrentEvent(bundle, initialState)) ||
     `你已进入 ${bundle.locationsById[startLocationId]?.name ?? '未知地点'}。`;
 
   return initialState;
@@ -1377,6 +1609,9 @@ export function executeEventRule(
     removedItemIds: new Set<string>(),
     targetNpcId: intent.targetNpcId,
     targetItemId: intent.targetItemId,
+    targetItemUseRuleId: intent.targetItemUseRuleId,
+    playerIntent: intent.intent,
+    playerInput,
   };
   for (const eventId of intent.targetEventIds ?? []) {
     if (bundle.eventsById[eventId]) {
@@ -1454,7 +1689,7 @@ export function executeEventRule(
       }
 
       const item = bundle.itemsById[targetItemId];
-      applyItemUsage(draft, bundle, item, context);
+      applyItemUsage(draft, bundle, item, character, context);
       result.actionResults.push(
         buildActionResult(
           'use_item',
@@ -1660,12 +1895,12 @@ export function buildEventClientSnapshot(
     currentLocationId: currentLocation.location_id,
     currentLocationName: currentLocation.name,
     currentLocationDescription:
-      currentEvent?.description ?? currentLocation.description ?? '',
+      getEventPlayerText(currentEvent) || (currentLocation.description ?? ''),
     storySummary: state.narrativeSummary,
     overviewEntries: uniqueStrings([
       `当前位置：${currentLocation.name}`,
       currentEvent?.title ? `当前事件：${currentEvent.title}` : '',
-      currentEvent?.description ?? '',
+      getEventPlayerText(currentEvent),
       ...recentEventSummaries,
     ]),
     completedNodeTitles: state.completedEventIds
@@ -1701,7 +1936,7 @@ export function buildEventWelcomeMessages(
     },
     {
       func: 'chat',
-      message: `${currentEvent?.title ?? currentLocation.name}：${currentEvent?.description ?? currentLocation.description ?? '你已进入故事。'}`,
+      message: `${currentEvent?.title ?? currentLocation.name}：${getEventPlayerText(currentEvent) || (currentLocation.description ?? '你已进入故事。')}`,
       character: 'system',
     },
   ];
@@ -1737,7 +1972,7 @@ export function buildEventOpeningPrompt(
       location: currentLocation.name,
       title: currentEvent?.title ?? currentLocation.name,
       description: trimPromptText(
-        currentEvent?.description ?? currentLocation.description ?? '',
+        getEventPlayerText(currentEvent) || (currentLocation.description ?? ''),
         220,
       ),
     }),
@@ -1834,9 +2069,10 @@ export function buildEventNarrationPrompt(params: {
       location: currentLocation.name,
       event: currentEvent?.title ?? '',
       description: trimPromptText(
-        currentEvent?.description ?? currentLocation.description ?? '',
+        getEventPlayerText(currentEvent) || (currentLocation.description ?? ''),
         220,
       ),
+      narrative: getEventNarrativeDetail(currentEvent),
     },
     status: state.status,
     time: `${state.timeValue} ${state.timeUnit ?? 'turn'}`,
@@ -1864,17 +2100,19 @@ export function buildEventNarrationPrompt(params: {
       location: previousLocation.name,
       event: previousEvent?.title ?? '',
       description: trimPromptText(
-        previousEvent?.description ?? previousLocation.description ?? '',
+        getEventPlayerText(previousEvent) || (previousLocation.description ?? ''),
         180,
       ),
+      narrative: getEventNarrativeDetail(previousEvent),
     },
     after: {
       location: currentLocation.name,
       event: currentEvent?.title ?? '',
       description: trimPromptText(
-        currentEvent?.description ?? currentLocation.description ?? '',
+        getEventPlayerText(currentEvent) || (currentLocation.description ?? ''),
         180,
       ),
+      narrative: getEventNarrativeDetail(currentEvent),
     },
     npcs: presentNpcIds.map((npcId) => ({
       npcId,
@@ -1905,6 +2143,7 @@ export function buildEventNarrationPrompt(params: {
     '每回合只写本回合新增的信息、变化、态度或线索；ctx.recent、ctx.summary、before 里已有且本回合未变化的内容不要重复解释。',
     'dialogue 只回应玩家说出口的话；action 只写动作后果；thought 不能被NPC直接听见。',
     '旁白优先写动作结果和新变化，不要复述背景、任务目标或玩家刚做过的动作；控制在2到4句短句内。',
+    '若ctx.before/after包含narrative，生成时必须尊重其中的goal/clue/reason：只写玩家已触发的目标、线索或威胁，并让状态变化能从叙事原因中看出来。',
     'NPC台词优先给新线索、新态度或新决定；不要重复地点描述、已知事实和任务目标；每个NPC尽量只说1句短句。',
     'npc_dialogues 只能由 responseNpcIds 内的NPC发言；没有合适回应就返回空数组。',
     '失败只给自然失败反馈，不强推剧情；不要暴露内部ID、检定数值、规则术语。',
@@ -1936,6 +2175,9 @@ export function buildEventAiTurnPrompt(params: {
   const currentEvent = getCurrentEvent(bundle, state);
   const presentNpcIds = getPresentNpcIds(bundle, state, state.currentLocationId);
   const moves = listAttemptableConnections(bundle, state, character).slice(0, 8);
+  const inventoryItemEntries = Object.entries(state.inventory)
+    .filter(([, count]) => Number(count) > 0)
+    .slice(0, 8);
   const eventCandidates = getCandidateEventIds(bundle, state)
     .map((eventId) => bundle.eventsById[eventId])
     .filter(Boolean)
@@ -1948,11 +2190,13 @@ export function buildEventAiTurnPrompt(params: {
     '很多回合只是对话、查看、搜索、思考或原地行动，不会发生地点变化、事件触发或物品变化；这种情况 ops 保持空对象或只填 npc。',
     '只有玩家明确移动/进入/离开/前往某地点时才填 loc；只是看向、询问、描述、检查某地点时不要填 loc。',
     '只有玩家动作满足候选事件触发语义时才填 events；不要为了推进剧情强行触发事件。',
-    '只有明确拿起/发现可拿物才填 items_add；只是查看/搜索未找到时不要填。只有明确使用/交出/丢弃已有物品才填 items_remove。',
+    '判定候选事件时必须结合ctx.events里的narrative：玩家输入应明显对应goal、clue或reason，才允许填该event；只提到地点名或氛围不算触发。',
+    '只有明确拿起/发现可拿物才填 items_add；只是查看/搜索未找到时不要填。',
+    '玩家使用物品时，必须先根据ctx.inventory.use_rules判断具体使用方法；能匹配到方法时填item_use={item,use}，不要用items_remove代替。只有明确交出、丢弃或规则要求消耗时才填items_remove。',
     'intent只能是 move/inspect/talk_to_npc/use_item/ask_world_question/free_roleplay。',
-    'loc只能选ctx.moves.id；events只能选ctx.events.id最多2个；items_add/items_remove只能选ctx.items.id；npc只能选ctx.npcs.id。',
+    'loc只能选ctx.moves.id；events只能选ctx.events.id最多2个；items_add只能选ctx.items.id；items_remove和item_use.item只能选ctx.inventory.id；item_use.use只能选该物品use_rules.id；npc只能选ctx.npcs.id。',
     'narration写2-4句短句，只写新发生的动作后果/地点变化/线索；npc_dialogues只能用ctx.npcs.id。',
-    'schema={"intent":"string","ops":{"loc":"location_id","events":["event_id"],"items_add":["item_id"],"items_remove":["item_id"],"npc":"npc_id","flags":{"k":true},"status":"active|finished"},"narration":"string","npc_dialogues":[{"npcId":"npc_id","text":"string"}],"confidence":0-1}',
+    'schema={"intent":"string","ops":{"loc":"location_id","events":["event_id"],"items_add":["item_id"],"items_remove":["item_id"],"item_use":{"item":"item_id","use":"use_id"},"npc":"npc_id","flags":{"k":true},"status":"active|finished"},"narration":"string","npc_dialogues":[{"npcId":"npc_id","text":"string"}],"confidence":0-1}',
     stringifyPromptPayload('scene', {
       loc: {
         id: currentLocation.location_id,
@@ -1963,14 +2207,12 @@ export function buildEventAiTurnPrompt(params: {
         ? {
             id: currentEvent.event_id,
             title: currentEvent.title,
-            desc: trimPromptText(currentEvent.description ?? '', 100),
+            desc: trimPromptText(getEventPlayerText(currentEvent), 100),
+            narrative: getEventNarrativeDetail(currentEvent),
           }
         : undefined,
       objectives: state.currentObjectives.slice(0, 4),
-      inv: Object.entries(state.inventory)
-        .filter(([, count]) => Number(count) > 0)
-        .slice(0, 8)
-        .map(([id, count]) => ({ id, name: getDisplayItemName(bundle, id), count })),
+      inv: inventoryItemEntries.map(([id, count]) => ({ id, name: getDisplayItemName(bundle, id), count })),
       known: state.knowledge.slice(-6),
     }),
     stringifyPromptPayload('ctx', {
@@ -1983,14 +2225,21 @@ export function buildEventAiTurnPrompt(params: {
         id: event.event_id,
         title: event.title,
         at: event.location_binding?.location_id ?? '',
+        narrative: getEventNarrativeDetail(event),
         trig: trimPromptText(
           [
             event.trigger?.trigger_type,
             event.trigger?.trigger_timing,
-            event.description,
+            getEventSemanticText(event),
           ].filter(Boolean).join(' '),
-          120,
+          180,
         ),
+        choices: (event.choices ?? []).slice(0, 3).map((choice) => ({
+          id: choice.choice_id,
+          intent: choice.choice_intent,
+          text: trimPromptText(choice.text ?? '', 80),
+          preview: trimPromptText(choice.result_preview ?? '', 60),
+        })),
       })),
       npcs: presentNpcIds.map((npcId) => ({
         id: npcId,
@@ -2000,6 +2249,32 @@ export function buildEventAiTurnPrompt(params: {
         id: itemId,
         name: getDisplayItemName(bundle, itemId),
       })),
+      inventory: inventoryItemEntries.map(([itemId, count]) => {
+        const item = bundle.itemsById[itemId];
+        return {
+          id: itemId,
+          name: getDisplayItemName(bundle, itemId),
+          count,
+          desc: trimPromptText(item?.description ?? '', 80),
+          use_rules: (item?.use_rules ?? []).slice(0, 5).map((rule) => ({
+            id: rule.use_id,
+            type: rule.usage_type,
+            at: (rule.usable_at ?? []).slice(0, 6),
+            targets: (rule.target_ids ?? []).slice(0, 6),
+            desc: trimPromptText(rule.description ?? '', 100),
+            effects: {
+              flags: rule.effects?.set_flags ? Object.keys(rule.effects.set_flags).slice(0, 6) : undefined,
+              add_items: rule.effects?.add_items?.slice(0, 4),
+              remove_items: rule.effects?.remove_items?.slice(0, 4),
+              knowledge: rule.effects?.add_knowledge?.slice(0, 3),
+              unlock_locations: rule.effects?.unlock_locations?.slice(0, 4),
+              unlock_connections: rule.effects?.unlock_connections?.slice(0, 4),
+              trigger_events: rule.effects?.trigger_events?.slice(0, 4),
+              consume: rule.effects?.consume_item,
+            },
+          })),
+        };
+      }),
       recent: {
         events: summarizeRecentEvents(state.recentEvents, 3, 70),
         messages: summarizeRecentMessages(recentMessages, 3, 70),
@@ -2045,6 +2320,13 @@ export function normalizeEventAiTurnOutput(raw: string | null): AiTurnOutput | n
         items_remove: Array.isArray(ops.items_remove)
           ? ops.items_remove.map((item) => String(item).trim()).filter(Boolean).slice(0, 4)
           : undefined,
+        item_use:
+          ops.item_use && typeof ops.item_use === 'object'
+            ? {
+                item: String(ops.item_use.item ?? '').trim() || undefined,
+                use: String(ops.item_use.use ?? '').trim() || undefined,
+              }
+            : undefined,
         npc: String(ops.npc ?? '').trim() || undefined,
         flags: ops.flags && typeof ops.flags === 'object' ? ops.flags : undefined,
         status: ops.status === 'finished' ? 'finished' : undefined,

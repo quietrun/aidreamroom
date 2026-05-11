@@ -433,11 +433,12 @@ class GameSocketSession {
         ops.loc ? 'move'
           : ops.npc ? 'talk_to_npc'
             : ops.items_add?.[0] ? 'inspect'
-              : ops.items_remove?.[0] ? 'use_item'
+              : ops.item_use?.item || ops.items_remove?.[0] ? 'use_item'
                 : aiTurn.intent ?? intent.intent,
       targetLocationId: ops.loc ?? intent.targetLocationId,
       targetNpcId: ops.npc ?? intent.targetNpcId,
-      targetItemId: ops.items_add?.[0] ?? ops.items_remove?.[0] ?? intent.targetItemId,
+      targetItemId: ops.items_add?.[0] ?? ops.item_use?.item ?? ops.items_remove?.[0] ?? intent.targetItemId,
+      targetItemUseRuleId: ops.item_use?.use ?? intent.targetItemUseRuleId,
       targetEventIds: ops.events ?? intent.targetEventIds,
       confidence: Math.max(intent.confidence, aiTurn.confidence ?? 0),
     };

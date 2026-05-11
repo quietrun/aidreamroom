@@ -280,6 +280,35 @@ async function ensurePosterColumn(prisma: PrismaClient) {
   `);
 }
 
+async function ensureLongTextColumn(
+  prisma: PrismaClient,
+  columnName: string,
+  definition: string,
+) {
+  const rows = await prisma.$queryRawUnsafe<
+    Array<{ column_type: string | null; data_type: string | null }>
+  >(
+    `
+      SELECT COLUMN_TYPE AS column_type, DATA_TYPE AS data_type
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'script_table'
+        AND COLUMN_NAME = ?
+      LIMIT 1
+    `,
+    columnName,
+  );
+
+  const column = rows[0];
+  if (!column || String(column.data_type ?? '').toLowerCase() === 'longtext') {
+    return;
+  }
+
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE \`script_table\` MODIFY COLUMN \`${columnName}\` ${definition}`,
+  );
+}
+
 async function ensureScriptTable(prisma: PrismaClient) {
   await prisma.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS \`script_table\` (
@@ -303,6 +332,7 @@ async function ensureScriptTable(prisma: PrismaClient) {
   `);
 
   await ensurePosterColumn(prisma);
+  await ensureLongTextColumn(prisma, 'theme', 'longtext NULL');
 }
 
 async function syncScripts(rootDir: string, prisma: PrismaClient) {

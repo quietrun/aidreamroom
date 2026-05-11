@@ -189,6 +189,20 @@ export type RawItem = {
   dropped_by?: string[];
   required_for?: string[];
   may_trigger_events?: string[];
+  use_rules?: RawItemUseRule[];
+};
+
+export type RawItemUseRule = {
+  use_id?: string;
+  usable?: boolean;
+  usage_type?: string;
+  usable_at?: string[];
+  target_type?: string;
+  target_ids?: string[];
+  description?: string;
+  condition_logic?: RawConditionLogic;
+  effects?: RawEventEffects;
+  failure_effects?: RawEventEffects;
 };
 
 export type RawGlobalStateSchema = {
@@ -222,12 +236,17 @@ export type RawEventEffects = {
   despawn_npcs?: string[];
   advance_time?: number;
   set_state?: ValueMap;
+  trigger_events?: string[];
+  consume_item?: boolean;
   complete_event?: boolean;
 };
 
 export type RawEventChoice = {
   choice_id?: string;
   text?: string;
+  choice_intent?: string;
+  risk_hint?: string;
+  result_preview?: string;
   condition_logic?: RawConditionLogic;
   effects?: RawEventEffects;
   next_event_hints?: string[];
@@ -240,6 +259,14 @@ export type RawScriptEvent = {
   story_stage?: string;
   sequence_index?: number;
   description?: string;
+  player_facing_text?: string;
+  narrative_detail?: {
+    scene?: string;
+    player_goal?: string;
+    clue_or_threat?: string;
+    mechanical_reason?: string;
+  };
+  gm_note?: string;
   location_binding?: {
     scope?: string;
     location_id?: string | null;
@@ -477,6 +504,7 @@ export type ParsedIntent = {
   targetNodeId?: string;
   targetNpcId?: string;
   targetItemId?: string;
+  targetItemUseRuleId?: string;
   targetEventIds?: string[];
   topic?: string;
   confidence: number;
@@ -568,6 +596,10 @@ export type AiTurnOutput = NarrationOutput & {
     events?: string[];
     items_add?: string[];
     items_remove?: string[];
+    item_use?: {
+      item?: string;
+      use?: string;
+    };
     npc?: string;
     flags?: Record<string, string | number | boolean>;
     status?: PlayGameState['status'];
