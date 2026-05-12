@@ -353,14 +353,6 @@ export function AuthPage({ mobile = false }) {
     return (
       <div className="mobile-app">
         <div className={`main-container mobile-auth-page mobile-auth-page--${mobileMode}`}>
-          <div className="mobile-auth-page__statusbar" aria-hidden="true">
-            <span>9:41</span>
-            <div className="mobile-auth-page__statusicons">
-              <i />
-              <i />
-              <i />
-            </div>
-          </div>
 
           <header className="mobile-auth-page__brand">
             <span>AI DREAMROOM</span>
