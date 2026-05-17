@@ -15,6 +15,11 @@ import { ensureWarehouseProfile } from '../../utils/session';
 
 const MAX_LOADOUT_SELECTION = 10;
 
+function getPlayMainPath(gameId, script) {
+  const support2D = Boolean(script?.support2D || script?.metadata?.support2D);
+  return support2D ? `/play/main/2d/${gameId}` : `/play/main/${gameId}`;
+}
+
 const warehouseCategoryOptions = [
   {
     key: 'weapon',
@@ -815,7 +820,7 @@ export function PlaySelectPage() {
       }
 
       await transitionPromise;
-      navigate(`/play/main/${response.info.uuid}`, { replace: true });
+      navigate(getPlayMainPath(response.info.uuid, script), { replace: true });
     } catch (error) {
       console.error(error);
       cancelTransition();

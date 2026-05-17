@@ -1770,6 +1770,7 @@ export function buildClientSnapshot(
     inventoryItems,
     loadoutLabels: [...state.loadoutLabels],
     objectiveLabels: buildObjectives(bundle, state),
+    presentNpcIds: [...new Set(currentLocation.npcs ?? [])],
     presentNpcNames: (currentLocation.npcs ?? [])
       .map((npcId) => bundle.npcsById[npcId]?.name)
       .filter(Boolean) as string[],

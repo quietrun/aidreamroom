@@ -4,6 +4,10 @@ import '../styles/index.scss';
 import { API } from '../utils/API';
 import { images } from '../constant';
 
+function getPlayMainPath(game) {
+  return game?.support2D ? `/play/main/2d/${game.uuid}` : `/play/main/${game.uuid}`;
+}
+
 export function EntryDreamPage() {
   const navigate = useNavigate();
   const [characterName, setCharacterName] = useState('');
@@ -43,7 +47,7 @@ export function EntryDreamPage() {
           </div>
         </div>
         <div className="normal-row" style={{ justifyContent: 'center', flexDirection: 'column' }}>
-          <div className="button-group-create" style={{ background: `url(${images.btn_entry_continue})`, backgroundSize: 'contain', width: '60.75rem', height: '13.75rem', marginRight: 0 }} onClick={() => latestGame && navigate(`/play/main/${latestGame.uuid}`)}>
+          <div className="button-group-create" style={{ background: `url(${images.btn_entry_continue})`, backgroundSize: 'contain', width: '60.75rem', height: '13.75rem', marginRight: 0 }} onClick={() => latestGame && navigate(getPlayMainPath(latestGame))}>
             <div style={{ marginBottom: '2rem', flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'flex-end', width: '100%', display: 'flex' }}>
               <div className="info-text" style={{ width: '10rem', marginLeft: '2rem' }}>
                 <span>{characterName}</span>

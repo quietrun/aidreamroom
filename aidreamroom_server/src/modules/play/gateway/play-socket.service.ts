@@ -677,6 +677,7 @@ class GameSocketSession {
             theme: this.script.metadata.theme,
             totalNodes: this.script.metadata.totalEvents || this.script.metadata.totalNodes,
             updateTime: this.script.updateTime ?? Date.now(),
+            support2D: Boolean(this.script.support2D || this.script.metadata.support2D),
           }
         : undefined,
     });

@@ -37,6 +37,10 @@ function formatRemainingTimes(config) {
   return total > 0 ? `${total}次` : '0次';
 }
 
+function getPlayMainPath(game) {
+  return game?.support2D ? `/play/main/2d/${game.uuid}` : `/play/main/${game.uuid}`;
+}
+
 export function EntryDreamV2Page() {
   const navigate = useNavigate();
   const cachedRoleProfile = getCachedRoleProfile();
@@ -118,7 +122,7 @@ export function EntryDreamV2Page() {
           <button
             type="button"
             className={`entrydream-v2-card is-continue${hasLatestGame ? '' : ' is-disabled'}`}
-            onClick={() => hasLatestGame && navigate(`/play/main/${latestGame.uuid}`)}
+            onClick={() => hasLatestGame && navigate(getPlayMainPath(latestGame))}
             disabled={!hasLatestGame}
           >
             <span className="entrydream-v2-tag">上次中断</span>

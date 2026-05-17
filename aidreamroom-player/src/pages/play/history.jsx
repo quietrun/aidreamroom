@@ -62,6 +62,11 @@ function sortList(list, sortType) {
   });
 }
 
+function getPlayMainPath(item) {
+  const support2D = Boolean(item?.script?.support2D || item?.script?.metadata?.support2D || item?.plot?.support2D);
+  return support2D ? `/play/main/2d/${item.gameId}` : `/play/main/${item.gameId}`;
+}
+
 export function PlayHistoryPage() {
   const navigate = useNavigate();
   const [gameList, setGameList] = useState([]);
@@ -130,11 +135,11 @@ export function PlayHistoryPage() {
             </div>
             <div className="outlook-item-list" style={{ overflow: 'auto' }}>
               {filteredGames.map((item) => (
-                <div key={item.gameId} onClick={() => navigate(`/play/main/${item.gameId}`)}>
+                <div key={item.gameId} onClick={() => navigate(getPlayMainPath(item))}>
                   <DreamSelectionCard
                     outlookInfo={item.plot}
                     characterInfo={item.character || { name: '无默认角色', background: '', worldType: '', uuid: '' }}
-                    onSelect={() => navigate(`/play/main/${item.gameId}`)}
+                    onSelect={() => navigate(getPlayMainPath(item))}
                     onCheckPlot={setPlotPreview}
                     onCheckCharacter={() => setCharacterPreview(item.character)}
                   />

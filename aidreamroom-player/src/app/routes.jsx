@@ -14,6 +14,7 @@ import { EntryDreamV2Page } from '../pages/entryDreamV2Page';
 import { PlaySelectPage } from '../pages/play/select';
 import { PlayHistoryPage } from '../pages/play/history';
 import { PlayMainPage } from '../pages/play/main';
+import { PlayMain2DPage } from '../pages/play/main2d';
 import { ComingSoonPage } from '../components/common/ComingSoonPage';
 import { RouteLoading } from '../components/common/RouteLoading';
 
@@ -49,6 +50,7 @@ export function AppRoutes() {
         <Route path="/entrydream-v2" element={<ProtectedRoute requireRole><EntryDreamV2Page /></ProtectedRoute>} />
         <Route path="/play/select" element={<ProtectedRoute requireRole><PlaySelectPage /></ProtectedRoute>} />
         <Route path="/play/history" element={<ProtectedRoute requireRole><PlayHistoryPage /></ProtectedRoute>} />
+        <Route path="/play/main/2d/:id" element={<ProtectedRoute requireRole><PlayMain2DPage /></ProtectedRoute>} />
         <Route path="/play/main/:id" element={<ProtectedRoute requireRole><PlayMainPage /></ProtectedRoute>} />
         <Route path="/mobile/login" element={<LoginRoute mobile><MobileLoginPage /></LoginRoute>} />
         <Route path="/mobile/main" element={<ProtectedRoute requireRole><MobileMainPage /></ProtectedRoute>} />

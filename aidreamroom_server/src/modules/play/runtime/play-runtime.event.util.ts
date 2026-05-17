@@ -1913,6 +1913,7 @@ export function buildEventClientSnapshot(
     inventoryItems,
     loadoutLabels: [...state.loadoutLabels],
     objectiveLabels: buildEventObjectives(bundle, state, character),
+    presentNpcIds: getPresentNpcIds(bundle, state, state.currentLocationId),
     presentNpcNames: getPresentNpcIds(bundle, state, state.currentLocationId).map(
       (npcId) => bundle.npcsById[npcId]?.name ?? npcId,
     ),

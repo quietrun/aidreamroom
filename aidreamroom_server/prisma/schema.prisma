@@ -346,6 +346,7 @@ model Script {
   npcFile           String?  @map("npc_file") @db.LongText
   itemFile          String?  @map("item_file") @db.LongText
   mapFile           String?  @map("map_file") @db.LongText
+  support2D         Boolean  @default(false)
   createTime        BigInt?  @map("createTime")
   updateTime        BigInt?  @map("updateTime")
 

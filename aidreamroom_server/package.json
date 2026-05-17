@@ -14,7 +14,8 @@
     "prisma:generate": "prisma generate",
     "prisma:pull": "prisma db pull",
     "scripts:import:desktop": "ts-node --transpile-only tools/import-desktop-scripts.ts",
-    "scripts:migrate-posters:local": "ts-node --transpile-only tools/migrate-script-posters-local.ts"
+    "scripts:migrate-posters:local": "ts-node --transpile-only tools/migrate-script-posters-local.ts",
+    "uploads:compress": "ts-node --transpile-only tools/compress-uploads-images.ts"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.758.0",
@@ -35,7 +36,8 @@
     "openai": "^6.34.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "undici": "^8.1.0"
+    "sharp": "^0.34.5",
+    "undici": "6.22.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.5",

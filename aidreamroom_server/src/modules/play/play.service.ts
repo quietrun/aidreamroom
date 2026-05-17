@@ -78,6 +78,7 @@ type LatestGameRow = {
   latest_plot_description: string | null;
   latest_plot_theme: string | null;
   latest_total_nodes: number | null;
+  latest_support2D: boolean | number | null;
   latest_objectives: string | null;
   progress_percent: number | null;
   turn_count: number | null;
@@ -144,6 +145,7 @@ export class PlayService implements OnModuleInit {
         theme: script.metadata.theme,
         totalNodes: script.metadata.totalEvents || script.metadata.totalNodes,
         updateTime: script.updateTime ?? normalizeTimestamp(),
+        support2D: Boolean(script.support2D || script.metadata.support2D),
       },
     });
 
@@ -151,6 +153,7 @@ export class PlayService implements OnModuleInit {
       ...info,
       script_id: script.uuid,
       mode: 'script',
+      support2D: Boolean(script.support2D || script.metadata.support2D),
     };
   }
 
@@ -162,7 +165,7 @@ export class PlayService implements OnModuleInit {
         select uuid, creator, updateTime, plot_id, character_id, currentPlotId,
                model_id, currentItems, image_list, isFinish,
                latest_plot_title, latest_plot_description, latest_plot_theme,
-               latest_total_nodes, latest_objectives, progress_percent,
+               latest_total_nodes, latest_support2D, latest_objectives, progress_percent,
                turn_count, latest_plot_updateTime
         from play_config
         where creator = ?
@@ -182,6 +185,13 @@ export class PlayService implements OnModuleInit {
     const isFinish = Boolean(row.isFinish);
     const progressPercent = isFinish ? 100 : row.progress_percent;
     const scriptId = row.plot_id || '';
+    const latestScript =
+      row.latest_support2D === null && scriptId
+        ? ((await this.scriptsService.queryByUuid(scriptId)) as PlayScriptRecord | null)
+        : null;
+    const support2D = this.normalizeBooleanValue(
+      row.latest_support2D ?? latestScript?.support2D ?? latestScript?.metadata?.support2D,
+    );
 
     return {
       result: 0,
@@ -201,6 +211,7 @@ export class PlayService implements OnModuleInit {
         progressPercent,
         progress: progressPercent,
         turnCount: Number(row.turn_count ?? 0),
+        support2D,
       },
       plot: {
         uuid: scriptId,
@@ -210,15 +221,18 @@ export class PlayService implements OnModuleInit {
         worldType: row.latest_plot_theme ?? '',
         updateTime: this.normalizeTimestampValue(row.latest_plot_updateTime),
         type: row.latest_plot_theme ?? '',
+        support2D,
       },
       script: {
         uuid: scriptId,
+        support2D,
         metadata: {
           title: row.latest_plot_title ?? '',
           description: row.latest_plot_description ?? '',
           totalNodes: Number(row.latest_total_nodes ?? 0),
           totalEvents: Number(row.latest_total_nodes ?? 0),
           theme: row.latest_plot_theme ?? '',
+          support2D,
         },
       },
       character: this.buildCharacterResponse({
@@ -432,6 +446,7 @@ export class PlayService implements OnModuleInit {
       theme: string;
       totalNodes: number;
       updateTime: number;
+      support2D?: boolean;
     };
   }) {
     const { gameId, scriptId, state, messages, userId, limitConfig, scriptSummary } = params;
@@ -460,6 +475,7 @@ export class PlayService implements OnModuleInit {
             latest_plot_description = coalesce(?, latest_plot_description),
             latest_plot_theme = coalesce(?, latest_plot_theme),
             latest_total_nodes = coalesce(?, latest_total_nodes),
+            latest_support2D = coalesce(?, latest_support2D),
             latest_plot_updateTime = coalesce(?, latest_plot_updateTime)
         where uuid = ?
       `,
@@ -479,6 +495,7 @@ export class PlayService implements OnModuleInit {
         scriptSummary?.description ?? null,
         scriptSummary?.theme ?? null,
         scriptSummary?.totalNodes ?? null,
+        scriptSummary?.support2D ?? null,
         scriptSummary?.updateTime ?? null,
         gameId,
       ],
@@ -533,6 +550,7 @@ export class PlayService implements OnModuleInit {
       isFinish: state.status === 'finished',
       mode: 'script',
       snapshot,
+      support2D: Boolean(script.support2D || script.metadata.support2D),
     };
   }
 
@@ -548,6 +566,7 @@ export class PlayService implements OnModuleInit {
       worldType: script.metadata.theme,
       updateTime: script.updateTime ?? normalizeTimestamp(),
       type: script.metadata.theme,
+      support2D: Boolean(script.support2D || script.metadata.support2D),
     };
   }
 
@@ -582,6 +601,10 @@ export class PlayService implements OnModuleInit {
   private normalizeTimestampValue(value: number | bigint | string | null | undefined) {
     const normalized = Number(value);
     return Number.isFinite(normalized) ? normalized : 0;
+  }
+
+  private normalizeBooleanValue(value: unknown) {
+    return value === true || value === 1 || value === '1';
   }
 
   private async loadCharacterProfile(userId: string): Promise<PlayCharacterProfile> {
@@ -839,6 +862,7 @@ export class PlayService implements OnModuleInit {
             'latest_plot_description',
             'latest_plot_theme',
             'latest_total_nodes',
+            'latest_support2D',
             'latest_objectives',
             'progress_percent',
             'turn_count',
@@ -852,6 +876,7 @@ export class PlayService implements OnModuleInit {
       ['latest_plot_description', '`latest_plot_description` longtext NULL'],
       ['latest_plot_theme', '`latest_plot_theme` text NULL'],
       ['latest_total_nodes', '`latest_total_nodes` int NULL'],
+      ['latest_support2D', '`latest_support2D` tinyint(1) NULL'],
       ['latest_objectives', '`latest_objectives` longtext NULL'],
       ['progress_percent', '`progress_percent` int NULL'],
       ['turn_count', '`turn_count` int NULL'],

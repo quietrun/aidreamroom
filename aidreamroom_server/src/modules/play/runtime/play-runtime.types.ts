@@ -364,6 +364,7 @@ export type RawOutcomeCondition = RawCondition & {
 export type PlayScriptRecord = {
   uuid: string;
   poster?: string;
+  support2D?: boolean;
   metadata: {
     title: string;
     description: string;
@@ -375,6 +376,7 @@ export type PlayScriptRecord = {
     requiredKnowledge: string[];
     storyCore?: string;
     poster?: string;
+    support2D?: boolean;
   };
   scriptFile?: string;
   npcFile?: string;
@@ -629,6 +631,7 @@ export type PlayClientSnapshot = {
   }>;
   loadoutLabels: string[];
   objectiveLabels: string[];
+  presentNpcIds: string[];
   presentNpcNames: string[];
   availableMoveLabels: string[];
   recentEventSummaries: string[];

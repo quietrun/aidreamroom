@@ -16,6 +16,7 @@ type ScriptRow = {
   npc_file: string | null;
   item_file: string | null;
   map_file: string | null;
+  support2D: boolean | number | null;
   createTime: number | bigint | null;
   updateTime: number | bigint | null;
 };
@@ -70,6 +71,7 @@ export class ScriptsService implements OnModuleInit {
     const row = await this.db.findFirst<ScriptSummaryRow>(
       `
         select uuid, title, description, total_nodes, theme, difficulty, required_items, required_knowledge, poster, createTime, updateTime
+             , support2D
         from script_table
         order by rand()
         limit 1
@@ -96,12 +98,15 @@ export class ScriptsService implements OnModuleInit {
             \`npc_file\` longtext NULL,
             \`item_file\` longtext NULL,
             \`map_file\` longtext NULL,
+            \`support2D\` tinyint(1) NOT NULL DEFAULT 0,
             \`createTime\` bigint NULL,
             \`updateTime\` bigint NULL,
             PRIMARY KEY (\`uuid\`)
           ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         `);
         await this.ensurePosterColumn();
+        await this.ensureSupport2DColumn();
+        await this.ensureSupport2DSeed();
       })().catch((error) => {
         this.tableReady = null;
         throw error;
@@ -132,6 +137,34 @@ export class ScriptsService implements OnModuleInit {
     `);
   }
 
+  private async ensureSupport2DColumn() {
+    const row = await this.db.findFirst<{ total: number | string }>(
+      `
+        SELECT COUNT(*) AS total
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'script_table'
+          AND COLUMN_NAME = 'support2D'
+      `,
+    );
+
+    if (Number(row?.total ?? 0) > 0) {
+      return;
+    }
+
+    await this.db.execute(`
+      ALTER TABLE \`script_table\`
+      ADD COLUMN \`support2D\` tinyint(1) NOT NULL DEFAULT 0 AFTER \`map_file\`
+    `);
+  }
+
+  private async ensureSupport2DSeed() {
+    await this.db.execute(
+      'update script_table set support2D = ? where uuid = ?',
+      [true, 'a79e10de42ef2ab9c4fa839ba96e1ea4'],
+    );
+  }
+
   private buildScriptResponse(row: ScriptSummaryRow, includeFiles = true) {
     const scriptMetadata = includeFiles
       ? this.parseScriptFileMetadata(row.script_file ?? null)
@@ -143,6 +176,7 @@ export class ScriptsService implements OnModuleInit {
     const script = {
       uuid: row.uuid,
       poster,
+      support2D: this.normalizeBoolean(row.support2D),
       metadata: {
         title: scriptMetadata?.title || row.title,
         description: scriptMetadata?.description || row.description || '',
@@ -157,6 +191,7 @@ export class ScriptsService implements OnModuleInit {
           this.parseStringList(row.required_knowledge),
         storyCore: scriptMetadata?.story_core ?? '',
         poster,
+        support2D: this.normalizeBoolean(row.support2D),
       },
       createTime: this.normalizeTimestamp(row.createTime),
       updateTime: this.normalizeTimestamp(row.updateTime),
@@ -228,5 +263,9 @@ export class ScriptsService implements OnModuleInit {
 
   private normalizeTimestamp(value: number | bigint | null) {
     return value === null ? 0 : Number(value);
+  }
+
+  private normalizeBoolean(value: unknown) {
+    return value === true || value === 1 || value === '1';
   }
 }
