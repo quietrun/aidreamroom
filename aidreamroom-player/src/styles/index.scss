@@ -5571,6 +5571,8 @@ body,
     object-position: center bottom;
     filter: drop-shadow(0 1.3rem 1.8rem rgba(0, 0, 0, 0.62));
     user-select: none;
+    pointer-events: auto;
+    cursor: pointer;
 }
 
 .play2d-npc-standee.is-count-2,
@@ -5904,13 +5906,31 @@ body,
 .play2d-record-bubble {
     max-width: 92%;
     align-self: flex-start;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.55rem;
 }
 
 .play2d-record-bubble.mine {
     align-self: flex-end;
+    flex-direction: row-reverse;
 }
 
-.play2d-record-bubble div {
+.play2d-record-avatar {
+    width: 2.15rem;
+    height: 2.15rem;
+    flex: 0 0 2.15rem;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid rgba(226, 197, 129, 0.42);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.play2d-record-content {
+    min-width: 0;
+}
+
+.play2d-record-meta {
     display: flex;
     align-items: center;
     gap: 0.45rem;
@@ -5964,7 +5984,7 @@ body,
     border-color: rgba(188, 92, 67, 0.34);
 }
 
-.play2d-record-bubble img {
+.play2d-record-image {
     max-width: 14rem;
     border-radius: 0.6rem;
     cursor: pointer;
@@ -6037,9 +6057,10 @@ body,
     z-index: 3;
     left: 1.25rem;
     right: 36rem;
+    // width: 60%;
     bottom: 0.8rem;
-    min-height: 7rem;
-    max-height: calc(var(--play2d-dialogue-space) - 1.4rem);
+    min-height: var(--play2d-dialogue-space);
+    // max-height: calc(var(--play2d-dialogue-space) - 1.4rem);
     padding: 1rem 1.15rem;
     border: 1px solid rgba(165, 126, 58, 0.54);
     border-radius: 1.1rem;
@@ -6050,7 +6071,8 @@ body,
 }
 
 .play2d-dialogue-box.is-composing {
-    max-height: calc(var(--play2d-dialogue-space) - 1.2rem);
+    // max-height: calc(var(--play2d-dialogue-space) - 1.2rem);
+    min-height: 10rem !important;
     overflow: visible;
 }
 
@@ -6121,8 +6143,9 @@ body,
 
 .play2d-dialogue-box > p {
     margin: 1rem 0 0;
+    width: 80%;
     color: rgba(255, 255, 255, 0.9);
-    font-size: 0.96rem;
+    font-size: 1.1rem;
     line-height: 1.65;
     text-align: left;
 }

@@ -235,6 +235,29 @@ function getDialogueNpcId(lastNpcMessage, presentNpcIds) {
   return presentNpcIds[0] || '';
 }
 
+function isAidrMessage(item) {
+  const character = String(item?.character || '').trim();
+  return character === 'system' || character === 'narrator';
+}
+
+function getMessageAvatar(item, scriptUuid, characterInfo) {
+  const character = String(item?.character || '').trim();
+
+  if (isAidrMessage(item)) {
+    return images.ava_aidr;
+  }
+
+  if (character === 'me') {
+    return characterInfo?.image || images.icon_character_avater;
+  }
+
+  if (scriptUuid && character) {
+    return getNpcImageUrl(scriptUuid, character, 'half');
+  }
+
+  return images.ava_aidr;
+}
+
 function getRecordKind(item) {
   if (item.character === 'system') {
     return 'system';
@@ -260,7 +283,7 @@ export function PlayMain2DPage() {
   const [inputMessage, setInputMessage] = useState('');
   const [inputMode, setInputMode] = useState('action');
   const [activeBackpackTab, setActiveBackpackTab] = useState('prop');
-  const [activeSideTab, setActiveSideTab] = useState('response');
+  const [activeSideTab, setActiveSideTab] = useState(null);
   const [composerOpen, setComposerOpen] = useState(false);
   const [pendingBackpackAction, setPendingBackpackAction] = useState(null);
   const {
@@ -299,9 +322,13 @@ export function PlayMain2DPage() {
   const scriptUuid = getScriptUuid(plotInfo);
   const presentNpcIds = useMemo(() => getPresentNpcIds(gameInfo), [gameInfo]);
   const dialogueNpcId = getDialogueNpcId(lastNpcMessage, presentNpcIds);
-  const dialogueAvatar = scriptUuid && dialogueNpcId
-    ? getNpcImageUrl(scriptUuid, dialogueNpcId, 'half')
-    : characterInfo?.image || images.icon_character_avater;
+  const isCurrentAidrMessage = isAidrMessage(lastNpcMessage);
+  const dialogueAvatar = isCurrentAidrMessage
+    ? images.ava_aidr
+    : scriptUuid && dialogueNpcId
+      ? getNpcImageUrl(scriptUuid, dialogueNpcId, 'half')
+      : characterInfo?.image || images.icon_character_avater;
+  const dialogueHalfImage = isCurrentAidrMessage ? images.aidr_women : dialogueAvatar;
   const hasHp = hasMetricValue(characterInfo, ['hp', 'currentHp', 'health', 'maxHp', 'hpMax']);
   const hasSp = hasMetricValue(characterInfo, ['sp', 'currentSp', 'san', 'sanity', 'maxSp', 'spMax']);
   const hp = getMetricValue(characterInfo, ['hp', 'currentHp', 'health']);
@@ -331,9 +358,35 @@ export function PlayMain2DPage() {
     await requestHintOptions(inputMessage);
   };
 
+  const isSideTabSelected = (tabKey) => (
+    tabKey === 'response'
+      ? activeSideTab === 'response' && composerOpen
+      : activeSideTab === tabKey
+  );
+
+  const closeSideTab = () => {
+    setActiveSideTab(null);
+    setComposerOpen(false);
+  };
+
+  const handleSideTabClick = (tabKey) => {
+    if (isSideTabSelected(tabKey)) {
+      closeSideTab();
+      return;
+    }
+
+    if (tabKey === 'response') {
+      setActiveSideTab('response');
+      setComposerOpen(true);
+      return;
+    }
+
+    setActiveSideTab(tabKey);
+    setComposerOpen(false);
+  };
+
   const toggleResponseComposer = () => {
-    setActiveSideTab('response');
-    setComposerOpen((current) => (activeSideTab === 'response' ? !current : true));
+    handleSideTabClick('response');
   };
 
   const handleHintSelect = (option) => {
@@ -348,6 +401,13 @@ export function PlayMain2DPage() {
   const handleBackpackAction = (action, item) => {
     setPendingBackpackAction({ action, item });
     setInputMode('action');
+    setActiveSideTab('response');
+    setComposerOpen(true);
+  };
+
+  const handleNpcClick = () => {
+    setPendingBackpackAction(null);
+    setInputMode('dialogue');
     setActiveSideTab('response');
     setComposerOpen(true);
   };
@@ -482,16 +542,28 @@ export function PlayMain2DPage() {
               key={item.id || `play2d-record-${index}`}
               className={`play2d-record-bubble is-${getRecordKind(item)} ${item.character === 'me' ? 'mine' : ''}`}
             >
-              <div>
-                <span>{item.character === 'me' ? characterName : getLeftSpeakerName(item)}</span>
-                <em>{item.time}</em>
-                {item.mode ? <b>{getInputModeLabel(item.mode)}</b> : null}
+              <img
+                className="play2d-record-avatar"
+                alt={item.character === 'me' ? characterName : getLeftSpeakerName(item)}
+                src={getMessageAvatar(item, scriptUuid, characterInfo)}
+              />
+              <div className="play2d-record-content">
+                <div className="play2d-record-meta">
+                  <span>{item.character === 'me' ? characterName : getLeftSpeakerName(item)}</span>
+                  <em>{item.time}</em>
+                  {item.mode ? <b>{getInputModeLabel(item.mode)}</b> : null}
+                </div>
+                {item.func === 'image' ? (
+                  <img
+                    className="play2d-record-image"
+                    alt="record"
+                    src={item.message}
+                    onClick={() => setShowImage(item.message)}
+                  />
+                ) : (
+                  <p>{item.message}</p>
+                )}
               </div>
-              {item.func === 'image' ? (
-                <img alt="record" src={item.message} onClick={() => setShowImage(item.message)} />
-              ) : (
-                <p>{item.message}</p>
-              )}
             </div>
           ))}
           {!records.length && <div className="play2d-empty">暂无记录</div>}
@@ -586,7 +658,7 @@ export function PlayMain2DPage() {
             style={{ backgroundImage: `url(${backgroundImage})` }}
           >
             <div className="play2d-scene-pills">
-              <span>第三章 › <b>{sceneTitle}</b></span>
+              <span><b>{sceneTitle}</b></span>
               <span><i /> {sceneSubtitle}</span>
             </div>
 
@@ -610,17 +682,18 @@ export function PlayMain2DPage() {
                     alt={npcId}
                     className={`play2d-npc-standee is-count-${Math.min(presentNpcIds.length, 4)} is-index-${index}`}
                     src={getNpcImageUrl(scriptUuid, npcId)}
+                    onClick={handleNpcClick}
                   />
                 ))}
               </div>
             ) : null}
 
-            <section className={`play2d-side-drawer ${activeSideTab === 'response' ? 'collapsed' : ''}`}>
-              {activeSideTab !== 'response' ? (
+            <section className={`play2d-side-drawer ${!activeSideTab || activeSideTab === 'response' ? 'collapsed' : ''}`}>
+              {activeSideTab && activeSideTab !== 'response' ? (
                 <>
                   <div className="play2d-panel-header">
                     <strong>◆ {sideTabs.find((item) => item.key === activeSideTab)?.title}</strong>
-                    <button type="button" onClick={() => setActiveSideTab('response')}>›</button>
+                    <button type="button" onClick={closeSideTab}>›</button>
                   </div>
                   {renderPanel()}
                 </>
@@ -632,42 +705,42 @@ export function PlayMain2DPage() {
                 <button
                   key={tab.key}
                   type="button"
-                  className={activeSideTab === tab.key ? 'active' : ''}
-                  onClick={() => {
-                    if (tab.key === 'response') {
-                      toggleResponseComposer();
-                      return;
-                    }
-                    setActiveSideTab(tab.key);
-                  }}
+                  className={isSideTabSelected(tab.key) ? 'active' : ''}
+                  onClick={() => handleSideTabClick(tab.key)}
                 >
                   <strong>{tab.icon}</strong>
-                  <span>{tab.label}</span>
+                  <span>{isSideTabSelected(tab.key) ? '收起' : tab.label}</span>
                   {tab.badge ? <em>{tab.badge}</em> : null}
                 </button>
               ))}
             </nav>
             <section className={`play2d-dialogue-box${composerOpen && activeSideTab === 'response' ? ' is-composing' : ''}`}>
-              <div className="play2d-dialogue-head">
-                <img alt="speaker" src={dialogueAvatar} />
-                <strong>{lastNpcMessage ? getLeftSpeakerName(lastNpcMessage) : characterName}</strong>
-                {/* <span>对话</span> */}
-                <div>
-                  {/* <button type="button" onClick={handleHintRequest} disabled={hintLoading || waitingMessage || isFinish}>提示</button> */}
-                  {/* <button type="button" onClick={handleSkip} disabled={waitingMessage || isFinish}>跳过</button> */}
+              {!(composerOpen && activeSideTab === 'response') && <>
+                <div className="play2d-dialogue-head">
+                  <img alt="speaker" src={dialogueAvatar} />
+                  <strong>{lastNpcMessage ? getLeftSpeakerName(lastNpcMessage) : characterName}</strong>
+                  {/* <span>对话</span> */}
+                  <div>
+                    {/* <button type="button" onClick={handleHintRequest} disabled={hintLoading || waitingMessage || isFinish}>提示</button> */}
+                    {/* <button type="button" onClick={handleSkip} disabled={waitingMessage || isFinish}>跳过</button> */}
+
+                  </div>
                   {/* <button
                     type="button"
                     className="primary"
-                    onClick={toggleResponseComposer}
+                    onClick={() => {
+                      setActiveSideTab('response');
+                      setComposerOpen(true);
+                    }}
                   >
                     回应
                   </button> */}
                 </div>
-              </div>
-              <img src={dialogueAvatar} className='dialog-half-image'/>
+                <img src={dialogueHalfImage} className='dialog-half-image' />
 
-              <p>{lastNpcMessage?.message || '你站在场景中，四周的细节逐渐清晰。'}</p>
-              {waitingMessage ? <img alt="waiting" className="play2d-waiting" src={waitingImage} /> : null}
+                <p>{lastNpcMessage?.message || '你站在场景中，四周的细节逐渐清晰。'}</p>
+                {waitingMessage ? <img alt="waiting" className="play2d-waiting" src={waitingImage} /> : null}
+              </>}
               {composerOpen && activeSideTab === 'response' ? renderPanel() : null}
             </section>
           </main>
