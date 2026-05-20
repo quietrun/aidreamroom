@@ -27,7 +27,7 @@ export class EmailService {
   }
 
   async sendVerifyCode(email: string) {
-    const code = String(Math.floor(Math.random() * 1000000)).padEnd(6, '0');
+    const code = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
     await this.transporter.sendMail({
       from: `"${this.fromName}" <${this.fromAddress}>`,
       to: email,

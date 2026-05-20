@@ -273,6 +273,24 @@ textarea {
     opacity: 0.14;
 }
 
+.desktop-aidr-woman {
+    position: absolute;
+    left: clamp(1.2rem, 3vw, 3.2rem);
+    bottom: 0;
+    z-index: 2;
+    width: clamp(16rem, 22vw, 24rem);
+    height: auto;
+    object-fit: contain;
+    pointer-events: none;
+    user-select: none;
+    max-width: 18rem;
+    filter: drop-shadow(0 1.4rem 2.8rem rgba(0, 0, 0, 0.58));
+}
+
+.entrydream-v2-aidr-woman {
+    opacity: 0.92;
+}
+
 .entrydream-v2-shell {
     position: absolute;
     inset: 0;
@@ -2532,6 +2550,11 @@ textarea {
     right: 0;
     height: 160px;
     background: linear-gradient(0deg, rgba(8, 6, 4, 0.92) 0%, transparent 100%);
+}
+
+.desktop-main-page__aidr-woman {
+    z-index: 3;
+    opacity: 0.9;
 }
 
 .desktop-main-page__topbar {
@@ -6422,6 +6445,312 @@ a-textarea {
 .play-select-start-button:disabled::before {
     animation-play-state: paused;
     opacity: 0;
+}
+
+.script-picker-mask {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.78);
+    backdrop-filter: blur(0.35rem);
+    box-sizing: border-box;
+}
+
+.script-picker-modal {
+    width: min(108rem, calc(100vw - 2rem));
+    height: min(66rem, calc(100vh - 2rem));
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid rgba(128, 102, 39, 0.48);
+    border-radius: 1.7rem;
+    background: rgba(8, 8, 5, 0.96);
+    box-shadow: 0 1.6rem 5rem rgba(0, 0, 0, 0.66), inset 0 0 0 1px rgba(255, 235, 177, 0.04);
+}
+
+.script-picker-header {
+    height: 5.7rem;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0 1.85rem;
+    border-bottom: 1px solid rgba(124, 99, 41, 0.22);
+    box-sizing: border-box;
+}
+
+.script-picker-header > div:first-child {
+    display: flex;
+    align-items: center;
+    gap: 1.6rem;
+    min-width: 0;
+}
+
+.script-picker-header strong {
+    color: #f1d789;
+    font-size: 1.45rem;
+    white-space: nowrap;
+}
+
+.script-picker-header span,
+.script-picker-filter-row > span {
+    color: rgba(242, 229, 198, 0.52);
+    font-size: 0.86rem;
+    white-space: nowrap;
+}
+
+.script-picker-search-row {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.script-picker-search-row input {
+    width: min(18.5rem, 28vw);
+    height: 2.65rem;
+    padding: 0 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.11);
+    border-radius: 999px;
+    outline: none;
+    background: rgba(255, 255, 255, 0.07);
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 0.88rem;
+}
+
+.script-picker-search-row input::placeholder {
+    color: rgba(242, 229, 198, 0.42);
+}
+
+.script-picker-search-row button {
+    width: 2.65rem;
+    display: flex;
+    justify-content: center;
+    height: 2.65rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0.8rem;
+    outline: none;
+    background: rgba(255, 255, 255, 0.09);
+    color: rgba(242, 229, 198, 0.72);
+    font-size: 2rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.script-picker-filter-row {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 4.5rem;
+    padding: 0 1.85rem;
+    border-bottom: 1px solid rgba(124, 99, 41, 0.14);
+    box-sizing: border-box;
+}
+
+.script-picker-filter-row > div {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+}
+
+.script-picker-filter-row button {
+    height: 2.35rem;
+    padding: 0 1.2rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 999px;
+    outline: none;
+    background: rgba(255, 255, 255, 0.045);
+    color: rgba(242, 229, 198, 0.66);
+    font-size: 0.86rem;
+    cursor: pointer;
+}
+
+.script-picker-filter-row button.active {
+    border-color: rgba(223, 186, 95, 0.52);
+    background: rgba(105, 82, 24, 0.62);
+    color: #f5dd96;
+}
+
+.script-picker-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 1.65rem 1.85rem;
+    box-sizing: border-box;
+}
+
+.script-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1.35rem;
+}
+
+.script-picker-card {
+    position: relative;
+    min-height: 31.5rem;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid rgba(142, 111, 42, 0.42);
+    border-radius: 1.25rem;
+    background-color: #111;
+    background-size: cover;
+    background-position: center;
+    box-shadow: inset 0 0 0 1px rgba(255, 233, 166, 0.04);
+}
+
+.script-picker-card.active {
+    border-color: rgba(235, 205, 116, 0.92);
+    box-shadow: 0 0 0 1px rgba(235, 205, 116, 0.18), inset 0 0 0 1px rgba(255, 233, 166, 0.08);
+}
+
+.script-picker-card-top {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.48rem;
+    flex-wrap: wrap;
+    padding: 1rem;
+}
+
+.script-picker-card-top span,
+.script-picker-card-top em,
+.script-picker-card-top b,
+.script-picker-tags span {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.45rem;
+    padding: 0 0.62rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    line-height: 1.2;
+    font-style: normal;
+    font-weight: 600;
+}
+
+.script-picker-card-top span,
+.script-picker-tags span {
+    border: 1px solid rgba(223, 186, 95, 0.34);
+    background: rgba(71, 54, 14, 0.74);
+    color: #f1d789;
+}
+
+.script-picker-card-top em {
+    border: 1px solid rgba(220, 161, 70, 0.34);
+    background: rgba(89, 55, 12, 0.72);
+    color: #efbd68;
+}
+
+.script-picker-card-top b {
+    margin-left: auto;
+    border: 1px solid rgba(102, 211, 113, 0.36);
+    background: rgba(24, 100, 41, 0.72);
+    color: #baf0aa;
+}
+
+.script-picker-card-content {
+    position: relative;
+    z-index: 1;
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    padding: 1rem;
+    background: linear-gradient(180deg, transparent, rgba(4, 4, 3, 0.84) 12%, rgba(4, 4, 3, 0.94));
+}
+
+.script-picker-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+}
+
+.script-picker-card h3 {
+    margin: 0;
+    color: #fff4d4;
+    font-size: 1.25rem;
+    line-height: 1.25;
+    text-align: left;
+}
+
+.script-picker-card p {
+    min-height: 3.8rem;
+    margin: 0;
+    color: rgba(244, 232, 204, 0.74);
+    font-size: 0.82rem;
+    line-height: 1.55;
+    text-align: left;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.script-picker-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.45rem;
+}
+
+.script-picker-metrics div {
+    min-width: 0;
+    padding: 0.55rem 0.4rem;
+    border: 1px solid rgba(255, 223, 140, 0.12);
+    border-radius: 0.55rem;
+    background: rgba(0, 0, 0, 0.46);
+    text-align: center;
+}
+
+.script-picker-metrics span {
+    display: block;
+    color: rgba(242, 225, 181, 0.54);
+    font-size: 0.66rem;
+    margin-bottom: 0.25rem;
+}
+
+.script-picker-metrics strong {
+    display: block;
+    color: #f5dd96;
+    font-size: 0.78rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.script-picker-card-content > button {
+    height: 2.65rem;
+    border: 1px solid rgba(233, 196, 94, 0.42);
+    border-radius: 0.72rem;
+    outline: none;
+    background: rgba(91, 70, 19, 0.86);
+    color: #f7dfa0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.script-picker-card.active .script-picker-card-content > button {
+    border-color: rgba(96, 214, 113, 0.52);
+    background: rgba(20, 99, 40, 0.82);
+    color: #d8ffd5;
+}
+
+.script-picker-empty {
+    height: 100%;
+    min-height: 18rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(242, 229, 198, 0.62);
+    font-size: 0.95rem;
 }
 
 @keyframes play-select-start-shine {

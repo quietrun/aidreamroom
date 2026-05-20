@@ -44,4 +44,15 @@ export class ScriptsController {
       script,
     };
   }
+
+  @Get('list')
+  async list() {
+    const scripts = await this.scriptsService.queryList();
+
+    return {
+      result: 0,
+      scripts,
+      total: scripts.length,
+    };
+  }
 }

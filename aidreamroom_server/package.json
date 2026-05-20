@@ -18,6 +18,8 @@
     "uploads:compress": "ts-node --transpile-only tools/compress-uploads-images.ts"
   },
   "dependencies": {
+    "@alicloud/dysmsapi20170525": "^4.5.1",
+    "@alicloud/openapi-client": "^0.4.15",
     "@aws-sdk/client-bedrock-runtime": "^3.758.0",
     "@aws-sdk/client-ses": "^3.758.0",
     "@nestjs/common": "^11.0.1",

@@ -96,6 +96,7 @@ export function EntryDreamV2Page() {
   return (
     <div className="main-container entrydream-v2-page" style={{ backgroundImage: `url(${images.bg_entry})` }}>
       <img alt="logo" src={images.logo} className="login-logo" />
+      <img alt="艾达" src={images.aidr_women} className="desktop-aidr-woman entrydream-v2-aidr-woman" />
       {/* <DesktopUserFloatingCard /> */}
 
       <main className="entrydream-v2-shell">

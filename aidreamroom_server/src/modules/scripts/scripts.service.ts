@@ -80,6 +80,20 @@ export class ScriptsService implements OnModuleInit {
     return row ? this.buildScriptResponse(row, false) : null;
   }
 
+  async queryList() {
+    await this.ensureTable();
+    const rows = await this.db.query<ScriptSummaryRow>(
+      `
+        select uuid, title, description, total_nodes, theme, difficulty, required_items, required_knowledge, poster, createTime, updateTime
+             , support2D
+        from script_table
+        order by coalesce(updateTime, createTime, 0) desc, title asc
+      `,
+    );
+
+    return rows.map((row) => this.buildScriptResponse(row, false));
+  }
+
   private ensureTable() {
     if (!this.tableReady) {
       this.tableReady = (async () => {

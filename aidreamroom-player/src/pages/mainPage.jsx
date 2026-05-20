@@ -172,6 +172,7 @@ export function MainPage() {
       <div className="desktop-main-page__shade" />
       <div className="desktop-main-page__topshade" />
       <div className="desktop-main-page__bottomshade" />
+      <img alt="艾达" src={images.aidr_women} className="desktop-aidr-woman desktop-main-page__aidr-woman" />
 
       <header className="desktop-main-page__topbar">
         <div className="desktop-main-page__brand">

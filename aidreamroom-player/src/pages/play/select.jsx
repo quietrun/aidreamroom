@@ -15,6 +15,16 @@ import { ensureWarehouseProfile } from '../../utils/session';
 
 const MAX_LOADOUT_SELECTION = 10;
 
+const scriptPickerFilters = [
+  { key: 'all', label: '全部' },
+  { key: 'hot', label: '热门' },
+  { key: 'playable', label: '可玩' },
+  { key: 'mystery', label: '悬疑' },
+  { key: 'horror', label: '恐怖' },
+  { key: 'scifi', label: '科幻' },
+  { key: 'fantasy', label: '奇幻' },
+];
+
 function getPlayMainPath(gameId, script) {
   const support2D = Boolean(script?.support2D || script?.metadata?.support2D);
   return support2D ? `/play/main/2d/${gameId}` : `/play/main/${gameId}`;
@@ -290,17 +300,21 @@ function SelectionChip({ label, accent = 'rgba(255,255,255,0.08)' }) {
 function PosterPill({ label, tone = 'wine' }) {
   const styleByTone = {
     wine: {
-      background: 'linear-gradient(180deg, rgba(126, 24, 24, 0.88), rgba(88, 17, 17, 0.82))',
-      border: '1px solid rgba(214, 73, 73, 0.4)',
+      background: 'rgba(105, 51, 38, 0.88)',
+      border: '1px solid rgba(188, 92, 67, 0.34)',
     },
     amber: {
-      background: 'linear-gradient(180deg, rgba(88, 55, 14, 0.88), rgba(66, 41, 10, 0.82))',
-      border: '1px solid rgba(220, 161, 70, 0.42)',
+      background: 'rgba(84, 68, 27, 0.82)',
+      border: '1px solid rgba(170, 137, 48, 0.34)',
     },
     blue: {
-      background: 'linear-gradient(180deg, rgba(19, 47, 97, 0.88), rgba(17, 39, 80, 0.82))',
-      border: '1px solid rgba(104, 146, 230, 0.38)',
+      background: 'rgba(31, 55, 77, 0.86)',
+      border: '1px solid rgba(84, 132, 178, 0.34)',
     },
+    green: {
+      background: 'rgba(33, 92, 45, 0.78)',
+      border: '1px solid rgba(85, 167, 92, 0.28)',
+    }
   };
 
   return (
@@ -406,6 +420,150 @@ function getScriptFeatureTags(script) {
   fallback.push('沉浸叙事');
 
   return Array.from(new Set(fallback)).slice(0, 4);
+}
+
+function getScriptDisplayTitle(script) {
+  return script?.metadata?.title || script?.title || '未命名剧本';
+}
+
+function getScriptDisplayDescription(script) {
+  return script?.metadata?.description || script?.description || '暂无简介。';
+}
+
+function matchScriptFilter(script, filterKey) {
+  if (filterKey === 'all' || filterKey === 'hot' || filterKey === 'playable') {
+    return true;
+  }
+
+  const normalizedTheme = normalizeScriptToken(script?.metadata?.theme || script?.theme);
+  const themeLabels = getScriptThemeTokens(script?.metadata?.theme || script?.theme)
+    .map((item) => normalizeScriptToken(item))
+    .join('|');
+
+  if (filterKey === 'scifi') {
+    return normalizedTheme.includes('scifi') || normalizedTheme.includes('sci') || themeLabels.includes('科幻');
+  }
+
+  return normalizedTheme.includes(filterKey) || themeLabels.includes(normalizeScriptToken(scriptThemeLabelMap[filterKey]));
+}
+
+function ScriptPickerModal({
+  open,
+  scripts,
+  currentScript,
+  loading,
+  searchValue,
+  filterValue,
+  onSearchChange,
+  onFilterChange,
+  onSelect,
+  onClose,
+}) {
+  const normalizedSearch = normalizeScriptToken(searchValue);
+  const filteredScripts = scripts.filter((item) => {
+    const searchCorpus = [
+      getScriptDisplayTitle(item),
+      getScriptDisplayDescription(item),
+      item?.metadata?.theme,
+      item?.metadata?.difficulty,
+      ...(item?.metadata?.requiredItems || []),
+      ...(item?.metadata?.requiredKnowledge || []),
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+    return (
+      matchScriptFilter(item, filterValue) &&
+      (!normalizedSearch || normalizeScriptToken(searchCorpus).includes(normalizedSearch))
+    );
+  });
+
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <div className="script-picker-mask">
+      <div className="script-picker-modal">
+        <header className="script-picker-header">
+          <div>
+            <strong>✣ 选择剧本</strong>
+            <span>共 {scripts.length} 个可用剧本</span>
+          </div>
+          <div className="script-picker-search-row">
+            <input
+              value={searchValue}
+              onChange={(event) => onSearchChange(event.target.value)}
+              placeholder="搜索剧本名 / 标签 / 主题..."
+            />
+            <button type="button" onClick={onClose} aria-label="关闭">×</button>
+          </div>
+        </header>
+
+        <div className="script-picker-filter-row">
+          <div>
+            {scriptPickerFilters.map((filter) => (
+              <button
+                key={filter.key}
+                type="button"
+                className={filterValue === filter.key ? 'active' : ''}
+                onClick={() => onFilterChange(filter.key)}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+          <span>匹配 {filteredScripts.length} 个</span>
+        </div>
+
+        <div className="script-picker-body">
+          {loading ? (
+            <div className="script-picker-empty"><Spin /></div>
+          ) : filteredScripts.length ? (
+            <div className="script-picker-grid">
+              {filteredScripts.map((item) => {
+                const selected = item.uuid === currentScript?.uuid;
+                const featureTags = getScriptFeatureTags(item);
+
+                return (
+                  <article
+                    key={item.uuid}
+                    className={`script-picker-card${selected ? ' active' : ''}`}
+                    style={{ backgroundImage: `linear-gradient(180deg, rgba(8,8,7,0.16), rgba(7,7,5,0.86)), url(${getScriptPoster(item)})` }}
+                  >
+                    <div className="script-picker-card-top">
+                      <span>{getScriptThemeLabel(item.metadata?.theme)}</span>
+                      <em>难度：{getScriptDifficultyLabel(item.metadata?.difficulty)}</em>
+                      {item.support2D && <em>2D场景</em>}
+                      {selected ? <b>● 当前</b> : null}
+                    </div>
+
+                    <div className="script-picker-card-content">
+                      <div className="script-picker-tags">
+                        {featureTags.slice(0, 3).map((tag) => <span key={`${item.uuid}-${tag}`}>{tag}</span>)}
+                      </div>
+                      <h3>{getScriptDisplayTitle(item)}</h3>
+                      <p>{getScriptDisplayDescription(item)}</p>
+                      <div className="script-picker-metrics">
+                        <div><span>规模</span><strong>{getScriptSizeLabel(item.metadata?.totalNodes)}</strong></div>
+                        <div><span>叙事</span><strong>{getScriptNarrativeLabel(item)}</strong></div>
+                        <div><span>节点</span><strong>{item.metadata?.totalNodes || '--'}</strong></div>
+                      </div>
+                      <button type="button" onClick={() => onSelect(item)}>
+                        {selected ? '✓ 已选中' : '选择'}
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="script-picker-empty">没有匹配的剧本</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function getWarehouseCategoryKey(entry) {
@@ -559,6 +717,11 @@ export function PlaySelectPage() {
   const [scriptLoading, setScriptLoading] = useState(false);
   const [starting, setStarting] = useState(false);
   const [script, setScript] = useState(null);
+  const [scriptPickerOpen, setScriptPickerOpen] = useState(false);
+  const [scriptList, setScriptList] = useState([]);
+  const [scriptListLoading, setScriptListLoading] = useState(false);
+  const [scriptSearch, setScriptSearch] = useState('');
+  const [scriptFilter, setScriptFilter] = useState('all');
   const [warehouseProfile, setWarehouseProfile] = useState(null);
   const [showHelp, setShowHelp] = useState(
     firstLogin && helpDialogConfig.help_play_change_character.flag,
@@ -593,6 +756,37 @@ export function PlaySelectPage() {
     } finally {
       setScriptLoading(false);
     }
+  };
+
+  const loadScriptList = async () => {
+    try {
+      setScriptListLoading(true);
+      const response = await API.SCRIPT_LIST();
+      if (response?.result !== 0) {
+        message.error(response?.message || '剧本列表加载失败');
+        setScriptList([]);
+        return;
+      }
+
+      setScriptList(response.scripts || []);
+    } catch (error) {
+      console.error(error);
+      message.error('剧本列表加载失败');
+    } finally {
+      setScriptListLoading(false);
+    }
+  };
+
+  const openScriptPicker = () => {
+    setScriptPickerOpen(true);
+    if (!scriptList.length) {
+      void loadScriptList();
+    }
+  };
+
+  const handleScriptSelect = (nextScript) => {
+    setScript(nextScript);
+    setScriptPickerOpen(false);
   };
 
   useEffect(() => {
@@ -943,32 +1137,69 @@ export function PlaySelectPage() {
                       label={script ? getScriptSizeLabel(script.metadata?.totalNodes) : '--'}
                       tone="blue"
                     />
+                    {script.support2D && <PosterPill
+                      label={'2D'}
+                      tone="green"
+                    />}
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={refreshRandomScript}
-                    disabled={scriptLoading || starting}
+                  <div
                     style={{
-                      width: '3.35rem',
-                      height: '3.35rem',
-                      borderRadius: '999px',
-                      border: '1px solid rgba(223, 186, 95, 0.34)',
-                      background: 'rgba(12, 12, 10, 0.48)',
-                      color: '#eecf7a',
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'center',
-                      cursor: scriptLoading || starting ? 'not-allowed' : 'pointer',
-                      opacity: scriptLoading || starting ? 0.66 : 1,
-                      backdropFilter: 'blur(8px)',
-                      boxShadow: '0 0.75rem 1.4rem rgba(0,0,0,0.18)',
-                      fontSize: '1.34rem',
+                      gap: '0.55rem',
                     }}
-                    title="换一个随机剧本"
                   >
-                    {scriptLoading ? <Spin size="small" /> : '↻'}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={openScriptPicker}
+                      disabled={starting}
+                      style={{
+                        height: '3.35rem',
+                        padding: '0 1rem',
+                        borderRadius: '999px',
+                        border: '1px solid rgba(223, 186, 95, 0.34)',
+                        background: 'rgba(12, 12, 10, 0.58)',
+                        color: '#f1d789',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: starting ? 'not-allowed' : 'pointer',
+                        opacity: starting ? 0.66 : 1,
+                        backdropFilter: 'blur(8px)',
+                        boxShadow: '0 0.75rem 1.4rem rgba(0,0,0,0.18)',
+                        fontSize: '0.86rem',
+                        fontWeight: 700,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      选择剧本
+                    </button>
+                    <button
+                      type="button"
+                      onClick={refreshRandomScript}
+                      disabled={scriptLoading || starting}
+                      style={{
+                        width: '3.35rem',
+                        height: '3.35rem',
+                        borderRadius: '999px',
+                        border: '1px solid rgba(223, 186, 95, 0.34)',
+                        background: 'rgba(12, 12, 10, 0.48)',
+                        color: '#eecf7a',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: scriptLoading || starting ? 'not-allowed' : 'pointer',
+                        opacity: scriptLoading || starting ? 0.66 : 1,
+                        backdropFilter: 'blur(8px)',
+                        boxShadow: '0 0.75rem 1.4rem rgba(0,0,0,0.18)',
+                        fontSize: '1.34rem',
+                      }}
+                      title="换一个随机剧本"
+                    >
+                      {scriptLoading ? <Spin size="small" /> : '↻'}
+                    </button>
+                  </div>
                 </div>
 
                 <div style={{ flex: 1 }} />
@@ -1351,6 +1582,19 @@ export function PlaySelectPage() {
           onClose={() => setShowHelp(false)}
         />
       ) : null}
+
+      <ScriptPickerModal
+        open={scriptPickerOpen}
+        scripts={scriptList}
+        currentScript={script}
+        loading={scriptListLoading}
+        searchValue={scriptSearch}
+        filterValue={scriptFilter}
+        onSearchChange={setScriptSearch}
+        onFilterChange={setScriptFilter}
+        onSelect={handleScriptSelect}
+        onClose={() => setScriptPickerOpen(false)}
+      />
     </>
   );
 }

@@ -103,6 +103,8 @@ class Api {
 
   SCRIPT_QUERY = (params) => GET('script/query', params, header);
 
+  SCRIPT_LIST = () => GET('script/list', null, header);
+
   SCRIPT_RANDOM = () => GET('script/random', null, header);
 
   PLAY_CREATE = (params) => POST('play/create', params, header);

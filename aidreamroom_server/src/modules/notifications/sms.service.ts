@@ -1,53 +1,48 @@
-import * as http from 'http';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import Client, * as $dysmsapi from '@alicloud/dysmsapi20170525';
+import * as $OpenApi from '@alicloud/openapi-client';
 
 @Injectable()
 export class SmsService {
+  private client: Client | null = null;
+
   constructor(private readonly configService: ConfigService) {}
 
   async sendVerifyCode(mobile: string) {
-    const code = String(Math.floor(Math.random() * 10000)).padEnd(4, '0');
-    const content = `您的验证码是：${code}。请不要把验证码泄露给其他人。`;
-    await this.sendSms(mobile, content);
+    const code = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+    await this.sendSmsCode(mobile, code);
     return code;
   }
 
   async sendRegisterNotice(mobile: string) {
-    const content =
-      '尊敬的无限星球用户您好，感谢您的等待，您已经获得注册资格，请尽快前往官网完成注册。';
-    await this.sendSms(mobile, content);
+    await this.sendSmsCode(mobile, '0000');
   }
 
-  private async sendSms(mobile: string, content: string) {
-    const account = this.configService.get<string>('app.smsAccount', '');
-    const password = this.configService.get<string>('app.smsPassword', '');
-    const hostname = this.configService.get<string>('app.smsHost', '106.ihuyi.com');
-    const port = this.configService.get<number>('app.smsPort', 80);
-    const path = this.configService.get<string>('app.smsPath', '/webservice/sms.php?method=Submit');
-    const payload = `account=${encodeURIComponent(account)}&password=${encodeURIComponent(password)}&mobile=${encodeURIComponent(mobile)}&content=${encodeURIComponent(content)}`;
+  private getClient() {
+    if (!this.client) {
+      const config = new $OpenApi.Config({
+        accessKeyId: this.configService.get<string>('app.aliyunAccessKeyId', ''),
+        accessKeySecret: this.configService.get<string>('app.aliyunAccessKeySecret', ''),
+      });
+      console.log({
+        accessKeyId: this.configService.get<string>('app.aliyunAccessKeyId', ''),
+        accessKeySecret: this.configService.get<string>('app.aliyunAccessKeySecret', ''),
+      })
+      this.client = new Client(config);
+    }
 
-    await new Promise<void>((resolve, reject) => {
-      const request = http.request(
-        {
-          hostname,
-          port,
-          path,
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Content-Length': Buffer.byteLength(payload),
-          },
-        },
-        (response) => {
-          response.on('data', () => undefined);
-          response.on('end', () => resolve());
-        },
-      );
+    return this.client;
+  }
 
-      request.on('error', reject);
-      request.write(payload);
-      request.end();
+  private async sendSmsCode(mobile: string, code: string) {
+    const request = new $dysmsapi.SendSmsRequest({
+      phoneNumbers: mobile,
+      signName: this.configService.get<string>('app.aliyunSmsSignName', '天津易比达教育科技'),
+      templateCode: this.configService.get<string>('app.aliyunSmsTemplateCode', 'SMS_486090102'),
+      templateParam: JSON.stringify({ code }),
     });
+
+    await this.getClient().sendSms(request);
   }
 }

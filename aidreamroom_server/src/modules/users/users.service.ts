@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 
 import { SessionAuthService } from '../../common/auth/session-auth.service';
 import { LegacyDbService } from '../../common/database/legacy-db.service';
@@ -10,6 +10,7 @@ import { SmsService } from '../notifications/sms.service';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
   private readonly abandonedAccounts = ['0923567937', '15910931773', ''];
 
   constructor(
@@ -52,7 +53,10 @@ export class UsersService {
         limitTime: Date.now() + 1000 * 60 * 5,
       });
       return { result: 0 };
-    } catch {
+    } catch (error) {
+      this.logger.warn(
+        `send verify code failed for ${email}: ${error instanceof Error ? error.message : String(error)}`,
+      );
       return { result: -1, msgId: ERROR_CODE.PhoneCodeSendFailed };
     }
   }
