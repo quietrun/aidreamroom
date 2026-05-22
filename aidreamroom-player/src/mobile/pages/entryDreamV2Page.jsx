@@ -21,21 +21,19 @@ function parseCharacterName(info) {
 
 function formatRemainingTimes(config) {
   const entries = Array.isArray(config) ? config : [];
+  const entry = entries.find((item) => Number(item?.moduleId) === 1);
 
-  if (!entries.length) {
+  if (!entry) {
     return '--';
   }
 
-  if (entries.some((item) => item?.times === '无限')) {
+  if (entry?.times === '无限') {
     return '无限';
   }
 
-  const total = entries.reduce((sum, item) => {
-    const value = Number(item?.times);
-    return Number.isFinite(value) ? sum + value : sum;
-  }, 0);
+  const value = Number(entry?.times);
 
-  return `${total}次`;
+  return Number.isFinite(value) ? `${Math.max(0, value)}次` : '--';
 }
 
 function normalizeProgressPercent(game) {

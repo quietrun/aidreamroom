@@ -41,7 +41,7 @@ export const MEMBERSHIP_LEVELS = {
 
 export type MembershipLevel = keyof typeof MEMBERSHIP_LEVELS;
 
-export const DEFAULT_MEMBERSHIP_LEVEL: MembershipLevel = 'normal';
+export const DEFAULT_MEMBERSHIP_LEVEL: MembershipLevel = 'free';
 
 export const WORLD_TYPES = [
   { text: 'COC', id: 0, color: 'rgb(70,68,178)' },

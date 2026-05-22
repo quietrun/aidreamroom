@@ -3,7 +3,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { SessionAuthService } from '../../common/auth/session-auth.service';
 import { LegacyDbService } from '../../common/database/legacy-db.service';
 import { generateNumericId, generateUuid } from '../../common/utils/id.util';
-import { ERROR_CODE } from '../../common/utils/legacy.constants';
+import { DEFAULT_MEMBERSHIP_LEVEL, ERROR_CODE } from '../../common/utils/legacy.constants';
 import { isChinesePhoneNumber } from '../../common/utils/phone.util';
 import { MembershipService } from '../membership/membership.service';
 import { EmailService } from '../notifications/email.service';
@@ -86,13 +86,13 @@ export class UsersService {
   }
 
   async register(email: string, password: string, code: string, accountType: number) {
-    const record = await this.db.findFirst<{ status: number }>(
-      'select * from user_register_table where account = ?',
-      [email],
-    );
-    if (!record || Number(record.status) === 0) {
-      return { result: -1 };
-    }
+    // const record = await this.db.findFirst<{ status: number }>(
+    //   'select * from user_register_table where account = ?',
+    //   [email],
+    // );
+    // if (!record || Number(record.status) === 0) {
+    //   return { result: -1 };
+    // }
 
     const validCode = await this.checkEmailCode(email, code);
     if (!validCode) {
@@ -112,6 +112,7 @@ export class UsersService {
       updateTime: Date.now(),
       level: 0,
       vip: 0,
+      membership_level: DEFAULT_MEMBERSHIP_LEVEL,
       accountType,
       createTime: Date.now(),
     });
@@ -180,7 +181,8 @@ export class UsersService {
       'select * from user_register_table where account = ?',
       [account],
     );
-    return { result: current ? Number(current.status) : 0 };
+    return {result : 1}
+    // return { result: current ? Number(current.status) : 0 };
   }
 
   async releaseRegister(count: number) {

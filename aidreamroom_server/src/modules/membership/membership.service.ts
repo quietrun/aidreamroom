@@ -187,9 +187,9 @@ export class MembershipService {
   }
 
   private async ensureMembershipColumn() {
-    const row = await this.db.findFirst<{ total: number | string }>(
+    const row = await this.db.findFirst<{ total: number | string; column_default: string | null }>(
       `
-        SELECT COUNT(*) AS total
+        SELECT COUNT(*) AS total, MAX(COLUMN_DEFAULT) AS column_default
         FROM INFORMATION_SCHEMA.COLUMNS
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'user_table'
@@ -202,6 +202,11 @@ export class MembershipService {
         'update user_table set membership_level = ? where membership_level is null or membership_level = ?',
         [DEFAULT_MEMBERSHIP_LEVEL, ''],
       );
+      if (row?.column_default !== DEFAULT_MEMBERSHIP_LEVEL) {
+        await this.db.execute(
+          `ALTER TABLE \`user_table\` MODIFY COLUMN \`membership_level\` varchar(32) NOT NULL DEFAULT '${DEFAULT_MEMBERSHIP_LEVEL}'`,
+        );
+      }
       return;
     }
 
