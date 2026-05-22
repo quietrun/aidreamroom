@@ -62,13 +62,16 @@ export function MobileAccountPage() {
     user_email: cachedUserInfo?.user_email || '',
     user_phone: cachedUserInfo?.user_phone || '',
   });
+  const membershipLabel = userInfo.membership_label || '普通会员';
+  const dailyAiLimitText = userInfo.daily_ai_limit_text || '200 次/天';
+  const remainAiTimesText = userInfo.remain_ai_times_text || '--';
 
   useEffect(() => {
     let mounted = true;
 
     async function init() {
       try {
-        const nextUserInfo = await ensureUserInfo();
+        const nextUserInfo = await ensureUserInfo({ force: true });
         if (!mounted) {
           return;
         }
@@ -192,6 +195,7 @@ export function MobileAccountPage() {
             <h1>{userInfo.user_name || '未命名用户'}</h1>
             <div className="mobile-account-page__metarow">
               <span>ID {userInfo.user_id || '--'}</span>
+              <span>{membershipLabel}</span>
               <span>{userInfo.user_phone ? '手机已绑定' : '手机未绑定'}</span>
               <span>{userInfo.user_email ? '邮箱已绑定' : '邮箱未绑定'}</span>
             </div>
@@ -205,6 +209,9 @@ export function MobileAccountPage() {
             <div className="mobile-account-page__detailpanel">
               <AccountDetailItem label="用户名" value={userInfo.user_name} />
               <AccountDetailItem label="用户 ID" value={userInfo.user_id} />
+              <AccountDetailItem label="会员等级" value={membershipLabel} />
+              <AccountDetailItem label="每日对话次数" value={dailyAiLimitText} />
+              <AccountDetailItem label="今日剩余次数" value={remainAiTimesText} />
               <AccountDetailItem label="邮箱" value={userInfo.user_email} />
               <AccountDetailItem label="手机" value={userInfo.user_phone} />
             </div>

@@ -5,6 +5,7 @@ import { LegacyDbService } from '../../common/database/legacy-db.service';
 import { generateNumericId, generateUuid } from '../../common/utils/id.util';
 import { ERROR_CODE } from '../../common/utils/legacy.constants';
 import { isChinesePhoneNumber } from '../../common/utils/phone.util';
+import { MembershipService } from '../membership/membership.service';
 import { EmailService } from '../notifications/email.service';
 import { SmsService } from '../notifications/sms.service';
 
@@ -18,6 +19,7 @@ export class UsersService {
     private readonly sessionAuthService: SessionAuthService,
     private readonly emailService: EmailService,
     private readonly smsService: SmsService,
+    private readonly membershipService: MembershipService,
   ) {}
 
   async checkEmailExists(email: string) {
@@ -204,13 +206,16 @@ export class UsersService {
     return Boolean(current);
   }
 
-  async queryOrCreateUserInfo(userId: string) {
+  async queryOrCreateUserInfo(userId: string): Promise<Record<string, unknown>> {
     const current = await this.db.findFirst<Record<string, unknown>>(
       'select * from user_info_table where uuid = ?',
       [userId],
     );
     if (current) {
-      return current;
+      return {
+        ...current,
+        ...(await this.membershipService.queryMembershipSummary(userId)),
+      };
     }
 
     const user = await this.db.findFirst<{ email: string }>('select * from user_table where uuid = ?', [userId]);
@@ -232,7 +237,10 @@ export class UsersService {
       user_avater: '',
     };
     await this.db.replaceInto('user_info_table', result);
-    return result;
+    return {
+      ...result,
+      ...(await this.membershipService.queryMembershipSummary(userId)),
+    };
   }
 
   async queryMoreDetail(userId: string, _sharedOnly: boolean) {

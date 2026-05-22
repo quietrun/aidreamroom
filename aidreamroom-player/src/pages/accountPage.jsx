@@ -150,13 +150,16 @@ export function AccountPage() {
   const [form, setForm] = useState({
     user_name: cachedUserInfo?.user_name || '',
   });
+  const membershipLabel = userInfo.membership_label || '普通会员';
+  const dailyAiLimitText = userInfo.daily_ai_limit_text || '200 次/天';
+  const remainAiTimesText = userInfo.remain_ai_times_text || '--';
 
   useEffect(() => {
     let mounted = true;
 
     async function init() {
       try {
-        const nextUserInfo = await ensureUserInfo();
+        const nextUserInfo = await ensureUserInfo({ force: true });
         if (!mounted) {
           return;
         }
@@ -312,6 +315,8 @@ export function AccountPage() {
           <InfoCard label="手机号码" value={userInfo.user_phone} />
           <InfoCard label="注册时间" value={userInfo.created_at || userInfo.register_time || '2026-03-12'} />
           <InfoCard label="最近登录" value={userInfo.last_login || '2026-05-04'} />
+          <InfoCard label="会员等级" value={membershipLabel} />
+          <InfoCard label="每日对话次数" value={dailyAiLimitText} />
           <InfoCard label="账号状态" wide>
             正常 <Pill tone="green">已验证</Pill>
           </InfoCard>
@@ -366,9 +371,13 @@ export function AccountPage() {
             <p>{userInfo.user_id || '--'}</p>
             <div className="account-page__badges">
               <Pill tone="green">已登录</Pill>
-              <Pill>Beta</Pill>
+              <Pill>{membershipLabel}</Pill>
             </div>
             <dl>
+              <dt>每日次数</dt>
+              <dd>{dailyAiLimitText}</dd>
+              <dt>剩余次数</dt>
+              <dd>{remainAiTimesText}</dd>
               <dt>邮箱</dt>
               <dd>{userInfo.user_email || '--'}</dd>
               <dt>手机</dt>

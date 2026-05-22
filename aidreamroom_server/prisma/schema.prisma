@@ -16,6 +16,7 @@ model User {
   createTime  BigInt?  @map("createTime")
   level       Int?     @default(0)
   vip         Int?     @default(0)
+  membershipLevel String? @default("normal") @map("membership_level") @db.VarChar(32)
   accountType Int?     @default(0) @map("accountType")
 
   @@map("user_table")

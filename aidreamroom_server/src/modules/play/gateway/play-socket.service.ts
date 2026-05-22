@@ -109,7 +109,7 @@ class GameSocketSession {
   private state: PlayGameState | null = null;
   private character: PlayCharacterProfile | null = null;
   private messages: PlayMessageRecord[] = [];
-  private userRemainConfig: Array<{ times: number; moduleId: number }> = [];
+  private userRemainConfig: Array<{ times: number | '无限'; moduleId: number }> = [];
   private modelId = 1;
   private openingTask: Promise<void> | null = null;
 
@@ -253,14 +253,14 @@ class GameSocketSession {
       return;
     }
 
-    const enabled = true || this.consumeLimit(moduleId);
+    const enabled = await this.playService.hasRemainTimes(this.userId);
     if (!enabled) {
       this.logger.warn(
-        `[${this.sessionId}] module limit exhausted for gameId=${this.gameId} moduleId=${moduleId}`,
+        `[${this.sessionId}] daily AI limit exhausted for gameId=${this.gameId} userId=${this.userId}`,
       );
       this.sendPayload({
         func: 'chat',
-        message: '您的该模型已超过今天的使用上限，请切换模型。',
+        message: '您今天的 AI 消息次数已用完，请明日 0 点后继续。',
         character: 'system',
       });
       await this.sendState();
@@ -328,7 +328,6 @@ class GameSocketSession {
       !sanitizedNarration ||
       (!sanitizedNarration.narration && sanitizedNarration.npc_dialogues.length === 0)
     ) {
-      this.refundLimit(moduleId);
       this.logger.warn(
         `[${this.sessionId}] AI narration unavailable gameId=${this.gameId} moduleId=${moduleId}; turn was not advanced`,
       );
@@ -343,6 +342,11 @@ class GameSocketSession {
     }
 
     this.state = nextState;
+    this.userRemainConfig = await this.playService.consumeRemainTime(this.userId);
+    this.sendPayload({
+      func: 'limit',
+      config: this.userRemainConfig,
+    });
     await this.emitTurn(sanitizedNarration);
     await this.playService.saveTurnLog({
       gameId: this.gameId,
@@ -356,41 +360,6 @@ class GameSocketSession {
     this.logger.log(
       `[${this.sessionId}] completed turn gameId=${this.gameId} turn=${nextState.turnCount} status=${nextState.status}`,
     );
-  }
-
-  private consumeLimit(moduleId: number) {
-    let enabled = false;
-    this.userRemainConfig = this.userRemainConfig.map((item) => {
-      if (item.moduleId !== moduleId) {
-        return item;
-      }
-
-      if (item.times <= 0) {
-        enabled = false;
-        return item;
-      }
-
-      enabled = true;
-      return {
-        ...item,
-        times: Math.max(item.times - 1, 0),
-      };
-    });
-
-    return enabled;
-  }
-
-  private refundLimit(moduleId: number) {
-    this.userRemainConfig = this.userRemainConfig.map((item) => {
-      if (item.moduleId !== moduleId) {
-        return item;
-      }
-
-      return {
-        ...item,
-        times: item.times + 1,
-      };
-    });
   }
 
   private async generateAiTurn(

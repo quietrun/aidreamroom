@@ -15,9 +15,33 @@ export const MODULE_LIST = [
 ] as const;
 
 export const DEFAULT_LIMIT_CONFIG = [
-  { times: 50, moduleId: 1 },
-  { times: 50, moduleId: 2 },
+  { times: 200, moduleId: 0 },
+  { times: 200, moduleId: 1 },
+  { times: 200, moduleId: 2 },
 ];
+
+export const MEMBERSHIP_LEVELS = {
+  free: {
+    label: '免费会员',
+    dailyLimit: 50,
+  },
+  normal: {
+    label: '普通会员',
+    dailyLimit: 200,
+  },
+  premium: {
+    label: '高级会员',
+    dailyLimit: 500,
+  },
+  top: {
+    label: '顶级会员',
+    dailyLimit: '无限',
+  },
+} as const;
+
+export type MembershipLevel = keyof typeof MEMBERSHIP_LEVELS;
+
+export const DEFAULT_MEMBERSHIP_LEVEL: MembershipLevel = 'normal';
 
 export const WORLD_TYPES = [
   { text: 'COC', id: 0, color: 'rgb(70,68,178)' },

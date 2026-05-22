@@ -29,6 +29,7 @@ export class SmsService {
         accessKeyId: this.configService.get<string>('app.aliyunAccessKeyId', ''),
         accessKeySecret: this.configService.get<string>('app.aliyunAccessKeySecret', ''),
       })
+      config.endpoint = 'dysmsapi.aliyuncs.com'
       this.client = new Client(config);
     }
 
@@ -42,7 +43,12 @@ export class SmsService {
       templateCode: this.configService.get<string>('app.aliyunSmsTemplateCode', 'SMS_486090102'),
       templateParam: JSON.stringify({ code }),
     });
-
+    console.log({
+      phoneNumbers: mobile,
+      signName: this.configService.get<string>('app.aliyunSmsSignName', '天津易比达教育科技'),
+      templateCode: this.configService.get<string>('app.aliyunSmsTemplateCode', 'SMS_486090102'),
+      templateParam: JSON.stringify({ code }),
+    })
     await this.getClient().sendSms(request);
   }
 }

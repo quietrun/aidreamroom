@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { GptModule } from '../gpt/gpt.module';
+import { MembershipModule } from '../membership/membership.module';
 import { ScriptsModule } from '../scripts/scripts.module';
 import { StorageModule } from '../storage/storage.module';
 import { PlayController } from './play.controller';
@@ -8,7 +9,7 @@ import { PlaySocketService } from './gateway/play-socket.service';
 import { PlayService } from './play.service';
 
 @Module({
-  imports: [GptModule, StorageModule, ScriptsModule],
+  imports: [GptModule, StorageModule, ScriptsModule, MembershipModule],
   controllers: [PlayController],
   providers: [PlayService, PlaySocketService],
   exports: [PlayService],

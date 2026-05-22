@@ -642,6 +642,17 @@ export function usePlaySession({ gameId, socketUrl }) {
             });
             break;
           }
+          case 'limit': {
+            const remainMap = {};
+            (response.config || []).forEach((item) => {
+              remainMap[item.moduleId] = item.times;
+            });
+            setRemainTimes(remainMap);
+            setRemainTime(
+              moduleIdRef.current in remainMap ? remainMap[moduleIdRef.current] : '无限',
+            );
+            break;
+          }
           case 'error': {
             message.info(response.message || '连接异常');
             if (response.refundModuleId !== undefined) {
@@ -734,10 +745,10 @@ export function usePlaySession({ gameId, socketUrl }) {
       message.info('正在等待艾达返回，请稍后');
       return false;
     }
-    // if (remainTime !== '无限' && Number(remainTime) === 0) {
-    //   message.info('该模型当前已无使用次数，请明日继续');
-    //   return false;
-    // }
+    if (remainTime !== '无限' && Number(remainTime) === 0) {
+      message.info('今天的 AI 消息次数已用完，请明日继续');
+      return false;
+    }
     if (!socketRef.current || socketRef.current.readyState !== 1) {
       logPlaySocket('warn', 'send-skipped', {
         gameId,
@@ -822,6 +833,11 @@ export function usePlaySession({ gameId, socketUrl }) {
       return [];
     }
 
+    if (remainTime !== '无限' && Number(remainTime) === 0) {
+      message.info('今日 AI 次数已用完');
+      return [];
+    }
+
     if (isFinish) {
       message.info('您已到达该剧情的终点');
       return [];
@@ -852,6 +868,24 @@ export function usePlaySession({ gameId, socketUrl }) {
         message: prompt,
         model: 'gpt-5.4',
       });
+
+      if (Array.isArray(response?.limitConfig)) {
+        const remainMap = {};
+        response.limitConfig.forEach((item) => {
+          remainMap[item.moduleId] = item.times;
+        });
+        setRemainTimes(remainMap);
+        setRemainTime(
+          moduleIdRef.current in remainMap ? remainMap[moduleIdRef.current] : '无限',
+        );
+      }
+
+      if (response?.result !== 0) {
+        message.info(response?.message || '提示生成失败，请稍后重试');
+        setHintOptions([]);
+        return [];
+      }
+
       const options = parseHintOptions(response?.message || '');
 
       if (!options.length) {

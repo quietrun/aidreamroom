@@ -1,12 +1,10 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 
 import { LegacyDbService } from '../../common/database/legacy-db.service';
-import {
-  DEFAULT_LIMIT_CONFIG,
-  MODULE_LIST,
-} from '../../common/utils/legacy.constants';
+import { MODULE_LIST } from '../../common/utils/legacy.constants';
 import { generateUuid } from '../../common/utils/id.util';
 import { normalizeTimestamp } from '../../common/utils/number.util';
+import { LimitConfigItem, MembershipService } from '../membership/membership.service';
 import { ScriptsService } from '../scripts/scripts.service';
 import {
   buildClientSnapshot,
@@ -93,6 +91,7 @@ export class PlayService implements OnModuleInit {
   constructor(
     private readonly db: LegacyDbService,
     private readonly scriptsService: ScriptsService,
+    private readonly membershipService: MembershipService,
   ) {}
 
   onModuleInit() {
@@ -289,37 +288,23 @@ export class PlayService implements OnModuleInit {
   }
 
   async queryRemainTimes(userId: string) {
-    const current = await this.db.findFirst<{ update_date: number; limit_config: string }>(
-      'select * from chat_limit_table where user_id = ?',
-      [userId],
-    );
-    let config = DEFAULT_LIMIT_CONFIG.map((item) => ({ ...item }));
+    await this.ensureRuntimeTables();
+    return this.membershipService.queryRemainTimes(userId);
+  }
 
-    if (current) {
-      const date = new Date();
-      date.setHours(0, 0, 0, 0);
-      const currentDayStart = date.getTime();
-      if (currentDayStart > Number(current.update_date ?? 0)) {
-        await this.db.replaceInto('chat_limit_table', {
-          user_id: userId,
-          update_date: normalizeTimestamp(),
-          limit_config: JSON.stringify(config),
-        });
-      } else {
-        config = JSON.parse(current.limit_config ?? '[]') as Array<{
-          times: number;
-          moduleId: number;
-        }>;
-      }
-    } else {
-      await this.db.replaceInto('chat_limit_table', {
-        user_id: userId,
-        update_date: normalizeTimestamp(),
-        limit_config: JSON.stringify(config),
-      });
-    }
+  async hasRemainTimes(userId: string) {
+    await this.ensureRuntimeTables();
+    return this.membershipService.hasRemainTimes(userId);
+  }
 
-    return config;
+  async consumeRemainTime(userId: string) {
+    await this.ensureRuntimeTables();
+    return this.membershipService.consumeRemainTime(userId);
+  }
+
+  async saveRemainTimes(userId: string, config: LimitConfigItem[]) {
+    await this.ensureRuntimeTables();
+    await this.membershipService.saveRemainTimes(userId, config);
   }
 
   queryModuleList() {
@@ -439,7 +424,7 @@ export class PlayService implements OnModuleInit {
     state: PlayGameState;
     messages: PlayMessageRecord[];
     userId: string;
-    limitConfig: Array<{ times: number; moduleId: number }> | null;
+    limitConfig: LimitConfigItem[] | null;
     scriptSummary?: {
       title: string;
       description: string;
@@ -840,6 +825,7 @@ export class PlayService implements OnModuleInit {
         `),
       ])
         .then(() => this.ensurePlayConfigSummaryColumns())
+        .then(() => this.membershipService.ensureSchema())
         .then(() => undefined)
         .catch((error) => {
           this.tableReady = null;
