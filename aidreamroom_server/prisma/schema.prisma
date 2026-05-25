@@ -217,6 +217,20 @@ model ChatLimit {
   @@map("chat_limit_table")
 }
 
+model ChatUsageLog {
+  id             BigInt  @id @default(autoincrement()) @db.UnsignedBigInt
+  userId         String  @map("user_id") @db.VarChar(191)
+  usageDate      String  @map("usage_date") @db.Char(10)
+  createdAt      BigInt  @map("created_at")
+  remainingAfter Int?    @map("remaining_after")
+  exhaustedAfter Boolean @default(false) @map("exhausted_after")
+  source         String  @default("chat") @db.VarChar(32)
+
+  @@index([usageDate, userId], map: "idx_chat_usage_date_user")
+  @@index([createdAt], map: "idx_chat_usage_created_at")
+  @@map("chat_usage_log_table")
+}
+
 model NumericalValue {
   uuid   String  @id @db.VarChar(191)
   name   String? @db.VarChar(191)

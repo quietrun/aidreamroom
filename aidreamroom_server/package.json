@@ -15,6 +15,7 @@
     "prisma:pull": "prisma db pull",
     "scripts:import:desktop": "ts-node --transpile-only tools/import-desktop-scripts.ts",
     "scripts:migrate-posters:local": "ts-node --transpile-only tools/migrate-script-posters-local.ts",
+    "analytics:daily": "ts-node --transpile-only tools/daily-analytics.ts",
     "uploads:compress": "ts-node --transpile-only tools/compress-uploads-images.ts"
   },
   "dependencies": {

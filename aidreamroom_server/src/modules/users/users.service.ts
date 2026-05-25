@@ -86,13 +86,13 @@ export class UsersService {
   }
 
   async register(email: string, password: string, code: string, accountType: number) {
-    // const record = await this.db.findFirst<{ status: number }>(
-    //   'select * from user_register_table where account = ?',
-    //   [email],
-    // );
-    // if (!record || Number(record.status) === 0) {
-    //   return { result: -1 };
-    // }
+    const record = await this.db.findFirst<{ status: number }>(
+      'select * from user_register_table where account = ?',
+      [email],
+    );
+    if (!record || Number(record.status) === 0) {
+      return { result: -1 };
+    }
 
     const validCode = await this.checkEmailCode(email, code);
     if (!validCode) {
@@ -181,8 +181,8 @@ export class UsersService {
       'select * from user_register_table where account = ?',
       [account],
     );
-    return {result : 1}
-    // return { result: current ? Number(current.status) : 0 };
+    // return {result : 1}
+    return { result: current ? Number(current.status) : 0 };
   }
 
   async releaseRegister(count: number) {

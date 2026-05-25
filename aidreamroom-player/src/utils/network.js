@@ -3,8 +3,8 @@ const URLS = {
 }
 export const API_BASE_URL = 'http://localhost:8380/';
 // const baseUrl = API_BASE_URL;
-// const baseUrl = 'http://47.245.42.208:8380/'
-const baseUrl = 'http://aidr.infinityplanet.world:8380/';
+const baseUrl = 'http://47.245.42.208:8380/'
+// const baseUrl = 'http://aidr.infinityplanet.world:8380/';
 
 export function resolveLegacyWsUrl(port = 3300) {
     const fallbackOrigin =
