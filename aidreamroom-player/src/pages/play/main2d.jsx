@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Input } from 'antd';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import '../../styles/index.scss';
 import { firstLogin, helpDialogConfig, images } from '../../constant';
 import { HelpDialog } from '../../components/common/HelpDialog';
@@ -19,6 +19,9 @@ const inputModeOptions = [
   { key: 'thought', label: '思考' },
   { key: 'dialogue', label: '对话' },
 ];
+
+const INTRO_VIDEO_SCRIPT_ID = 'a79e10de42ef2ab9c4fa839ba96e1ea4';
+const INTRO_VIDEO_URL = `http://47.245.42.208:8580/pic/${INTRO_VIDEO_SCRIPT_ID}.mp4`;
 
 const sideTabs = [
   { key: 'response', icon: '✎', title: '回应', label: '回应' },
@@ -277,7 +280,9 @@ function formatMessageTime(index) {
 
 export function PlayMain2DPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { id } = useParams();
+  const introVideoRef = useRef(null);
   const [showHelp, setShowHelp] = useState(helpDialogConfig.help_continue_play.flag && firstLogin);
   const [showImage, setShowImage] = useState('');
   const [inputMessage, setInputMessage] = useState('');
@@ -286,6 +291,12 @@ export function PlayMain2DPage() {
   const [activeSideTab, setActiveSideTab] = useState(null);
   const [composerOpen, setComposerOpen] = useState(false);
   const [pendingBackpackAction, setPendingBackpackAction] = useState(null);
+  const shouldShowIntroVideo = Boolean(
+    location.state?.fromNewGame &&
+    location.state?.scriptId === INTRO_VIDEO_SCRIPT_ID,
+  );
+  const [introVideoVisible, setIntroVideoVisible] = useState(shouldShowIntroVideo);
+  const [introVideoEnded, setIntroVideoEnded] = useState(false);
   const {
     plotInfo,
     characterInfo,
@@ -335,6 +346,37 @@ export function PlayMain2DPage() {
   const maxHp = getMetricValue(characterInfo, ['maxHp', 'hpMax']);
   const sp = getMetricValue(characterInfo, ['sp', 'currentSp', 'san', 'sanity']);
   const maxSp = getMetricValue(characterInfo, ['maxSp', 'spMax']);
+
+  useEffect(() => {
+    if (!introVideoVisible || !introVideoRef.current) {
+      return;
+    }
+
+    const video = introVideoRef.current;
+    video.currentTime = 0;
+    video.muted = false;
+    const playPromise = video.play();
+
+    if (playPromise?.catch) {
+      playPromise.catch(() => {
+        video.muted = true;
+        video.play().catch(() => {});
+      });
+    }
+  }, [introVideoVisible]);
+
+  const hideIntroVideo = () => {
+    if (introVideoRef.current) {
+      introVideoRef.current.pause();
+    }
+    setIntroVideoVisible(false);
+  };
+
+  const handleIntroVideoClick = () => {
+    if (introVideoEnded) {
+      hideIntroVideo();
+    }
+  };
 
   const handleSend = () => {
     const messageText = pendingBackpackAction
@@ -746,6 +788,34 @@ export function PlayMain2DPage() {
           </main>
         </div>
       </div>
+      {introVideoVisible ? (
+        <div
+          className={`play2d-intro-video${introVideoEnded ? ' is-ended' : ''}`}
+          onClick={handleIntroVideoClick}
+        >
+          <video
+            ref={introVideoRef}
+            className="play2d-intro-video__media"
+            src={INTRO_VIDEO_URL}
+            preload="auto"
+            playsInline
+            onEnded={() => setIntroVideoEnded(true)}
+          />
+          {introVideoEnded ? (
+            <div className="play2d-intro-video__hint">点击屏幕开始游戏</div>
+          ) : null}
+          <button
+            type="button"
+            className="play2d-intro-video__skip"
+            onClick={(event) => {
+              event.stopPropagation();
+              hideIntroVideo();
+            }}
+          >
+            跳过
+          </button>
+        </div>
+      ) : null}
       {showHelp && <HelpDialog id="help_continue_play" onClose={() => setShowHelp(false)} />}
       <ImageLightbox image={showImage} onClose={() => setShowImage('')} />
     </>

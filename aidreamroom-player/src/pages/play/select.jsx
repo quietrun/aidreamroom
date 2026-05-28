@@ -1014,7 +1014,13 @@ export function PlaySelectPage() {
       }
 
       await transitionPromise;
-      navigate(getPlayMainPath(response.info.uuid, script), { replace: true });
+      navigate(getPlayMainPath(response.info.uuid, script), {
+        replace: true,
+        state: {
+          fromNewGame: true,
+          scriptId: script.uuid,
+        },
+      });
     } catch (error) {
       console.error(error);
       cancelTransition();
