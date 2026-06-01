@@ -866,7 +866,7 @@ export function usePlaySession({ gameId, socketUrl }) {
       });
       const response = await API.GPT_GENERATE_MESSAGE({
         message: prompt,
-        model: 'gpt-5.4',
+        // model: 'gpt-5.4',
       });
 
       if (Array.isArray(response?.limitConfig)) {

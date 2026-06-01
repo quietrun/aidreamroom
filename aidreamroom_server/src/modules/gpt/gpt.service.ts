@@ -13,31 +13,32 @@ export class GptService {
   private static readonly OPENAI_TIMEOUT_MS = 30 * 1000;
 
   private readonly openai: OpenAI;
+  private readonly deepseek: OpenAI;
   private readonly bedrockClient: BedrockRuntimeClient;
   private readonly logger = new Logger(GptService.name);
   private readonly openaiApiKey: string;
+  private readonly deepseekApiKey: string;
+  private readonly defaultLlmModel: string;
   private readonly bedrockModelId: string;
   private readonly bedrockAccessKeyId: string;
   private readonly bedrockSecretAccessKey: string;
 
   constructor(private readonly configService: ConfigService) {
+    this.defaultLlmModel = this.configService.get<string>('app.defaultLlmModel', 'deepseek-v4-pro');
     this.openaiApiKey = this.configService.get<string>('app.openaiApiKey', '').trim();
+    this.deepseekApiKey = this.configService.get<string>('app.deepseekApiKey', '').trim();
     this.bedrockModelId = this.configService.get<string>('app.bedrockModelId', '');
     this.bedrockAccessKeyId = this.configService.get<string>('app.bedrockAccessKeyId', '');
     this.bedrockSecretAccessKey = this.configService.get<string>('app.bedrockSecretAccessKey', '');
 
-    this.openai = new OpenAI({
-      apiKey: this.openaiApiKey,
-      baseURL: this.configService.get<string>('app.openaiBaseUrl') || undefined,
-      timeout: 30 * 1000,
-      maxRetries: 0,
-      fetch: async (url, init) => {
-        return undiciFetch(url as any, {
-          ...(init as any),
-          dispatcher: proxyAgent,
-        } as any) as any;
-      },
-    });
+    this.openai = this.createOpenAiCompatibleClient(
+      this.openaiApiKey,
+      this.configService.get<string>('app.openaiBaseUrl') || undefined,
+    );
+    this.deepseek = this.createOpenAiCompatibleClient(
+      this.deepseekApiKey,
+      this.configService.get<string>('app.deepseekBaseUrl', 'https://api.deepseek.com'),
+    );
 
     this.bedrockClient = new BedrockRuntimeClient({
       region: this.configService.get<string>('app.bedrockRegion', 'us-west-2'),
@@ -48,18 +49,21 @@ export class GptService {
     });
   }
 
-  async generateDirectMessage(message: string, model = 'gpt-5.4') {
-    if (!this.isOpenAiConfigured()) {
-      this.logger.error(`OpenAI generation skipped for model=${model} because OPENAI_API_KEY is empty`);
+  async generateDirectMessage(message: string, model?: string) {
+    const resolvedModel = this.resolveModel(model);
+    if (!this.isChatProviderConfigured(resolvedModel)) {
+      this.logger.error(
+        `${this.getProviderName(resolvedModel)} generation skipped for model=${resolvedModel} because API key is empty`,
+      );
       return '';
     }
 
     try {
-      const result = await this.createOpenAiChatCompletion(message, model);
+      const result = await this.createChatCompletion(message, resolvedModel);
       return this.unwrapJsonFence(result);
     } catch (error) {
       this.logger.error(
-        `OpenAI generation failed for model=${model}: ${this.formatOpenAiError(error)}`,
+        `${this.getProviderName(resolvedModel)} generation failed for model=${resolvedModel}: ${this.formatOpenAiError(error)}`,
         error instanceof Error ? error.stack : String(error),
       );
       return '';
@@ -67,7 +71,7 @@ export class GptService {
   }
 
   async generateStructuredMessage(message: string, moduleId = 1) {
-    const model = getModuleNameById(moduleId);
+    const model = this.resolveStructuredModel(moduleId);
 
     if (model === 'Claude' && !this.isBedrockConfigured()) {
       this.logger.warn(
@@ -76,9 +80,9 @@ export class GptService {
       return null;
     }
 
-    if (model !== 'Claude' && !this.isOpenAiConfigured()) {
+    if (model !== 'Claude' && !this.isChatProviderConfigured(model)) {
       this.logger.warn(
-        `Skipping OpenAI request for moduleId=${moduleId} model=${model} because OPENAI_API_KEY is empty`,
+        `Skipping ${this.getProviderName(model)} request for moduleId=${moduleId} model=${model} because API key is empty`,
       );
       return null;
     }
@@ -93,7 +97,7 @@ export class GptService {
       try {
         text = model === 'Claude'
           ? await this.invokeClaude(message)
-          : await this.generateStructuredOpenAiMessage(message, model);
+          : await this.generateStructuredChatMessage(message, model);
       } catch (error) {
         this.logger.error(
           `Structured generation failed for moduleId=${moduleId} model=${model} retry=${retry + 1}`,
@@ -131,7 +135,7 @@ export class GptService {
 
     return this.generateDirectMessage(
       prompt,
-      this.configService.get<string>('app.autoCharacterModel', 'gpt-5.4'),
+      this.configService.get<string>('app.autoCharacterModel') || this.defaultLlmModel,
     );
   }
 
@@ -155,66 +159,117 @@ export class GptService {
     return this.unwrapJsonFence(payload.content[0]?.text ?? '');
   }
 
-  private async generateStructuredOpenAiMessage(message: string, model: string) {
-    if (!this.isOpenAiConfigured()) {
-      this.logger.error(`OpenAI structured generation skipped for model=${model} because OPENAI_API_KEY is empty`);
+  private async generateStructuredChatMessage(message: string, model: string) {
+    if (!this.isChatProviderConfigured(model)) {
+      this.logger.error(
+        `${this.getProviderName(model)} structured generation skipped for model=${model} because API key is empty`,
+      );
       return '';
     }
 
     try {
-      return await this.createOpenAiChatCompletion(message, model, true);
+      return await this.createChatCompletion(message, model, true);
     } catch (error) {
       this.logger.warn(
-        `OpenAI structured JSON mode failed for model=${model}, falling back to plain chat completion: ${this.formatOpenAiError(error)}`,
+        `${this.getProviderName(model)} structured JSON mode failed for model=${model}, falling back to plain chat completion: ${this.formatOpenAiError(error)}`,
         error instanceof Error ? error.stack : String(error),
       );
     }
 
     try {
-      return await this.createOpenAiChatCompletion(message, model);
+      return await this.createChatCompletion(message, model);
     } catch (error) {
       this.logger.error(
-        `OpenAI structured fallback failed for model=${model}: ${this.formatOpenAiError(error)}`,
+        `${this.getProviderName(model)} structured fallback failed for model=${model}: ${this.formatOpenAiError(error)}`,
         error instanceof Error ? error.stack : String(error),
       );
       return '';
     }
   }
 
-  private async createOpenAiChatCompletion(
+  private async createChatCompletion(
     message: string,
     model: string,
     jsonMode = false,
   ) {
+    const provider = this.getProviderName(model);
     this.logger.log(
-      `OpenAI request started model=${model} jsonMode=${jsonMode} timeoutMs=${GptService.OPENAI_TIMEOUT_MS}`,
+      `${provider} request started model=${model} jsonMode=${jsonMode} timeoutMs=${GptService.OPENAI_TIMEOUT_MS}`,
     );
 
     const startedAt = Date.now();
     try {
-      const completion = await this.openai.chat.completions.create(
-        {
-          model,
-          messages: [{ role: 'user', content: message }],
-          ...(jsonMode ? { response_format: { type: 'json_object' as const } } : {}),
-        },
+      const completion = await this.getChatClient(model).chat.completions.create(
+        this.buildChatCompletionBody(message, model, jsonMode),
         {
           timeout: GptService.OPENAI_TIMEOUT_MS,
         },
       );
 
       this.logger.log(
-        `OpenAI request completed model=${model} jsonMode=${jsonMode} durationMs=${Date.now() - startedAt}`,
+        `${provider} request completed model=${model} jsonMode=${jsonMode} durationMs=${Date.now() - startedAt}`,
       );
 
       return completion.choices[0]?.message?.content ?? '';
     } catch (error) {
       this.logger.error(
-        `OpenAI request failed model=${model} jsonMode=${jsonMode} durationMs=${Date.now() - startedAt}: ${this.formatOpenAiError(error)}`,
+        `${provider} request failed model=${model} jsonMode=${jsonMode} durationMs=${Date.now() - startedAt}: ${this.formatOpenAiError(error)}`,
         error instanceof Error ? error.stack : String(error),
       );
       throw error;
     }
+  }
+
+  private createOpenAiCompatibleClient(apiKey: string, baseURL?: string) {
+    return new OpenAI({
+      apiKey,
+      baseURL,
+      timeout: 30 * 1000,
+      maxRetries: 0,
+      fetch: async (url, init) => {
+        return undiciFetch(url as any, {
+          ...(init as any),
+          // dispatcher: proxyAgent,
+        } as any) as any;
+      },
+    });
+  }
+
+  private buildChatCompletionBody(message: string, model: string, jsonMode: boolean) {
+    return {
+      model,
+      messages: [{ role: 'user' as const, content: message }],
+      ...(jsonMode ? { response_format: { type: 'json_object' as const } } : {}),
+      ...(this.isDeepSeekModel(model)
+        ? {
+            thinking: {
+              type: this.configService.get<string>('app.deepseekThinkingType', 'enabled'),
+            },
+            reasoning_effort: this.configService.get<string>('app.deepseekReasoningEffort', 'high'),
+          }
+        : {}),
+    } as any;
+  }
+
+  private resolveStructuredModel(moduleId: number) {
+    const model = getModuleNameById(moduleId);
+    return moduleId === 1 ? this.defaultLlmModel : model;
+  }
+
+  private resolveModel(model?: string) {
+    return model?.trim() || this.defaultLlmModel;
+  }
+
+  private getChatClient(model: string) {
+    return this.isDeepSeekModel(model) ? this.deepseek : this.openai;
+  }
+
+  private getProviderName(model: string) {
+    return this.isDeepSeekModel(model) ? 'DeepSeek' : 'OpenAI';
+  }
+
+  private isDeepSeekModel(model: string) {
+    return model.toLowerCase().startsWith('deepseek-');
   }
 
   private unwrapJsonFence(text: string) {
@@ -265,6 +320,14 @@ export class GptService {
 
   private isOpenAiConfigured() {
     return Boolean(this.openaiApiKey);
+  }
+
+  private isDeepSeekConfigured() {
+    return Boolean(this.deepseekApiKey);
+  }
+
+  private isChatProviderConfigured(model: string) {
+    return this.isDeepSeekModel(model) ? this.isDeepSeekConfigured() : this.isOpenAiConfigured();
   }
 
   private formatOpenAiError(error: unknown) {
